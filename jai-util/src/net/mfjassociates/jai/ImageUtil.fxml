@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Menu?>
+<?import javafx.scene.control.MenuBar?>
+<?import javafx.scene.control.MenuItem?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.SplitPane?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.BorderPane?>
+
+<BorderPane prefHeight="335.0" prefWidth="383.0" xmlns="http://javafx.com/javafx/8.0.121" xmlns:fx="http://javafx.com/fxml/1" fx:controller="net.mfjassociates.jai.ImageUtilController">
+   <center>
+      <SplitPane dividerPositions="0.5" prefHeight="200.0" prefWidth="200.0" BorderPane.alignment="CENTER">
+         <items>
+            <ScrollPane fitToWidth="true" prefHeight="200.0" prefWidth="200.0">
+               <content>
+                  <Label fx:id="base64Label" wrapText="true" />
+               </content>
+            </ScrollPane>
+            <ScrollPane prefHeight="200.0" prefWidth="200.0">
+               <content>
+                  <ImageView fx:id="imageView" pickOnBounds="true" preserveRatio="true" />
+               </content>
+            </ScrollPane>
+         </items>
+      </SplitPane>
+   </center>
+   <top>
+      <MenuBar BorderPane.alignment="CENTER">
+        <menus>
+          <Menu mnemonicParsing="false" text="File">
+            <items>
+                  <MenuItem mnemonicParsing="false" onAction="#openFired" text="Open" />
+                  <MenuItem mnemonicParsing="false" onAction="#saveFired" text="Save" />
+                  <MenuItem mnemonicParsing="false" onAction="#saveAsFired" text="Save As..." />
+              <MenuItem mnemonicParsing="false" onAction="#closeFired" text="Close" />
+            </items>
+          </Menu>
+          <Menu mnemonicParsing="false" text="Edit">
+            <items>
+              <MenuItem mnemonicParsing="false" onAction="#preferencesFired" text="Preferences" />
+            </items>
+          </Menu>
+          <Menu mnemonicParsing="false" text="Help">
+            <items>
+              <MenuItem mnemonicParsing="false" text="About" />
+            </items>
+          </Menu>
+        </menus>
+      </MenuBar>
+   </top>
+   <bottom>
+      <Label fx:id="statusMessageLabel" BorderPane.alignment="CENTER" />
+   </bottom>
+</BorderPane>
