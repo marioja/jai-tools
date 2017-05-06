@@ -1,6 +1,5 @@
 package net.mfjassociates.jai.test;
 
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.file.Files;
@@ -9,7 +8,7 @@ import java.nio.file.Paths;
 import java.text.MessageFormat;
 import java.util.Arrays;
 
-import com.sun.media.imageio.plugins.jpeg2000.J2KImageWriteParam;
+import com.github.jaiimageio.jpeg2000.J2KImageWriteParam;
 
 public class ResultsHandlingJpeg2000 {
 

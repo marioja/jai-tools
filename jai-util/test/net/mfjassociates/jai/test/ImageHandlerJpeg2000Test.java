@@ -1,6 +1,5 @@
 package net.mfjassociates.jai.test;
 
-import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -33,9 +32,8 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
-import com.sun.media.imageio.plugins.jpeg2000.J2KImageWriteParam;
+import com.github.jaiimageio.jpeg2000.J2KImageWriteParam;
 
-import javafx.embed.swing.SwingFXUtils;
 import javafx.scene.image.Image;
 import net.mfjassociates.jai.util.ImageHandler;
 
