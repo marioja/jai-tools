@@ -11,6 +11,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.util.Base64;
 import java.util.Iterator;
@@ -31,6 +32,8 @@ import javax.imageio.spi.IIORegistry;
 import javax.imageio.spi.ImageReaderSpi;
 import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.ImageOutputStream;
+
+import com.sun.javafx.iio.ImageStorageException;
 
 import javafx.application.Platform;
 import javafx.embed.swing.SwingFXUtils;
@@ -60,6 +63,7 @@ public class ImageUtilController {
 	@FXML private Label base64Label;
 	@FXML private Label statusMessageLabel;
 	private byte[] image_bytes=null;
+	private InputStream bais=null;
 	private String imageName=null;
 	private PreferencesController preferencesController=null;
 	private float saveCompression=userPreferences.getFloat(SAVE_COMPRESSION_PREF, RECOMMENDED_JPEG_QUALITY);
@@ -128,6 +132,8 @@ public class ImageUtilController {
 	private void setupImage(File imageFile) {
 		try {
 			image_bytes=Files.readAllBytes(imageFile.toPath()); // remember last read image
+			// ByteArrayInputStream will mark position 0 when created which is what we want here for reset
+			bais=new ByteArrayInputStream(image_bytes); // remember input stream, only need to reset if required more than once on same data
 			imageName=imageFile.getName();
 			setupImage();
 		} catch (NoSuchElementException | IOException e) {
@@ -144,21 +150,38 @@ public class ImageUtilController {
 	 * @throws IOException if there is an error reading from the input stream
 	 * @throws NoSuchElementException if there are no readers found that can handle this input stream
 	 */
+	@SuppressWarnings("restriction")
 	private void setupImage() throws IOException {
 		if (image_bytes==null) return;
-		ByteArrayInputStream bais = new ByteArrayInputStream(image_bytes);
+
+		Image fximage=null;
+		bais.reset(); // always reset in case setupImage() is being called on same image
+
+		// we always need ImageIO to determine filetype
 		ImageInputStream imageis = ImageIO.createImageInputStream(bais);
 		String formatName=null;
 		ImageReader reader=null;
 		String imageSize=String.format("%1$,d", image_bytes.length);
 		reader=ImageIO.getImageReaders(imageis).next();
-		formatName=reader.getFormatName();
-
 		reader.setInput(imageis);
-		BufferedImage image = reader.read(0);
-		// convert to jpg for display as jp2 is not viewable or convert if display compression in prefs not 1.0
-		if ("jpeg 2000".equals(formatName) || !ImageHandler.equals(displayCompression, 1.0f, 4)) {
-			IIOImage iioImage = new IIOImage(image, null, null);
+		formatName=reader.getFormatName();
+		
+		if (ImageHandler.equals(displayCompression, 1.0f, 4)) {// no compression
+			bais.reset();
+			fximage = new Image(bais); // use javafx image processing
+			if (fximage.isError()) {
+				if (fximage.getException() instanceof ImageStorageException) { // use ImageIO since javafx failed
+					fximage = SwingFXUtils.toFXImage(reader.read(0), null);
+				} else {
+					throw new RuntimeException("Unexpected error from JavaFX Image conversion", fximage.getException());
+				}
+			}
+		} else { // regenerate fximage using displayCompression
+			IIOImage iioImage = new IIOImage(reader.read(0), null, null);
+			imageis.close();
+			reader.dispose();
+			
+			// write new JPEG image with displayCompression
 			ImageWriter writer = ImageIO.getImageWritersByFormatName("jpeg").next();
 			ByteArrayOutputStream baos=new ByteArrayOutputStream();
 			ImageOutputStream imageos = ImageIO.createImageOutputStream(baos);
@@ -167,16 +190,21 @@ public class ImageUtilController {
 			iqp.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
 			iqp.setCompressionType(iqp.getCompressionTypes()[0]);
 			iqp.setCompressionQuality(displayCompression);
-//			if (ImageHandler.equals(displayCompression, 1.0f, 4)) {
-//				iqp=null; // no compression
-//			}
 			writer.write(null, iioImage, iqp);
 			imageos.close();
 			writer.dispose();
-			imageSize=String.format("%1$,d(viewed jpg %2$,d)", image_bytes.length, baos.toByteArray().length);
+			
+			// create fximage from new JPEG compressed stored in ByteArrayOutputStream
+			imageis = ImageIO.createImageInputStream(new ByteArrayInputStream(baos.toByteArray()));
+			reader=ImageIO.getImageReaders(imageis).next();
+			reader.setInput(imageis);
+			fximage = SwingFXUtils.toFXImage(reader.read(0), null);
+			imageSize=String.format("%1$,d(compressed jpg %2$,d)", image_bytes.length, baos.toByteArray().length);
 		}
+		
 		imageis.close();
-		imageView.setImage(SwingFXUtils.toFXImage(image, null));
+		reader.dispose();
+		imageView.setImage(fximage);
 		String base64String=new String(Base64.getEncoder().encode(image_bytes));
 		base64Label.setText(base64String);
 		statusMessageLabel.setText(String.format("Image %1$s: image size=%2$s, base64 size=%3$,d, type=%4$s, compression=%5$f", imageName, imageSize, base64String.length(), formatName, displayCompression));
