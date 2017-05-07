@@ -50,6 +50,7 @@ import javafx.stage.FileChooser;
 import javafx.stage.FileChooser.ExtensionFilter;
 import javafx.stage.Window;
 import javafx.util.Pair;
+import net.mfjassociates.fx.FXUtils.ResponsiveTask;
 import net.mfjassociates.jai.util.ImageHandler;
 
 public class ImageUtilController {
@@ -158,30 +159,56 @@ public class ImageUtilController {
 	}
 
 	private void setupImageTask() {
-		Task<ImageInformation> setupImageTask = new Task<ImageInformation>() {
-
-			@Override
-			protected ImageInformation call() throws Exception {
-				return setupImage();
-			}
-		};
-		setupImageTask.setOnSucceeded(event -> {
-			Platform.runLater(() -> {
-				ImageInformation ii = setupImageTask.getValue();
+//		Task<ImageInformation> setupImageTask = new Task<ImageInformation>() {
+//			@Override
+//			protected ImageInformation call() throws Exception {
+//				return setupImage();
+//			}
+//		};
+//		setupImageTask.setOnSucceeded(event -> {
+//			Platform.runLater(() -> {
+//				ImageInformation ii = setupImageTask.getValue();
+//				imageView.setImage(ii.fximage);
+//				String base64String = new String(Base64.getEncoder().encode(image_bytes));
+//				base64Label.setText(base64String);
+//				statusMessageLabel.setText(
+//						String.format("Image %1$s: image size=%2$s, base64 size=%3$,d, type=%4$s, compression=%5$f",
+//								imageName, ii.imageSize, base64String.length(), ii.formatName, displayCompression));
+//				imageView.getScene().setCursor(Cursor.DEFAULT);
+//			});
+//		});
+//		setupImageTask.setOnFailed(event -> Platform.runLater(() -> {
+//			imageView.getScene().setCursor(Cursor.DEFAULT);
+//			if (setupImageTask.getException()!=null) {
+//				statusMessageLabel.setText(setupImageTask.getException().getMessage());
+//			}
+//		}));
+		ResponsiveTask<ImageInformation, IOException> setupImageTask = new ResponsiveTask<ImageInformation, IOException>(
+			rt->{ // succeeded callback
+				ImageInformation ii = rt.getValue();
 				imageView.setImage(ii.fximage);
 				String base64String = new String(Base64.getEncoder().encode(image_bytes));
 				base64Label.setText(base64String);
 				statusMessageLabel.setText(
 						String.format("Image %1$s: image size=%2$s, base64 size=%3$,d, type=%4$s, compression=%5$f",
 								imageName, ii.imageSize, base64String.length(), ii.formatName, displayCompression));
-				imageView.getScene().setCursor(Cursor.DEFAULT);
-			});
-		});
-		setupImageTask.setOnFailed(event -> Platform.runLater(() -> imageView.getScene().setCursor(Cursor.DEFAULT)));
-		Thread t=new Thread(setupImageTask);
-		t.setDaemon(true);
-		imageView.getScene().setCursor(Cursor.WAIT);
-		t.start();
+				return null;
+			},
+			rt->{ // failed callback
+				if (rt.getException()!=null) {
+					statusMessageLabel.setText(rt.getException().getMessage());
+				}
+				return null;
+			},
+			()->setupImage(), // ThrowingSupplier, this will return the ImageInformation object
+			imageView.getScene() // scene to set the cursor to wait and back to default.
+		);
+		imageView.setImage(null);
+		base64Label.setText("");
+		Thread setupThread=new Thread(setupImageTask);
+		setupThread.setDaemon(true);
+//		imageView.getScene().setCursor(Cursor.WAIT);
+		setupThread.start();
 	}
 
 	/**
