@@ -6,7 +6,6 @@ import static net.mfjassociates.jai.PreferencesController.RECOMMENDED_JPEG_QUALI
 import static net.mfjassociates.jai.PreferencesController.SAVE_COMPRESSION_PREF;
 import static net.mfjassociates.jai.util.ImageHandler.saveImage;
 
-import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -36,10 +35,12 @@ import javax.imageio.stream.ImageOutputStream;
 import com.sun.javafx.iio.ImageStorageException;
 
 import javafx.application.Platform;
+import javafx.concurrent.Task;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
+import javafx.scene.Cursor;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.DialogPane;
 import javafx.scene.control.Label;
@@ -117,7 +118,7 @@ public class ImageUtilController {
 			if (sc!=null) saveCompression=sc;
 			if (dc!=null) {
 				displayCompression=dc;
-				setupImage();
+				setupImageTask();
 			}
 //			System.out.println(String.format("save compression=%1$f, display compression=%2$f.", result.get().getKey(), result.get().getValue()));
 		}
@@ -135,7 +136,7 @@ public class ImageUtilController {
 			// ByteArrayInputStream will mark position 0 when created which is what we want here for reset
 			bais=new ByteArrayInputStream(image_bytes); // remember input stream, only need to reset if required more than once on same data
 			imageName=imageFile.getName();
-			setupImage();
+			setupImageTask();
 		} catch (NoSuchElementException | IOException e) {
 			e.printStackTrace();
 			String errorMessageFormat="Unable to process file '%1$s'";
@@ -144,6 +145,45 @@ public class ImageUtilController {
 			return;
 		}
 	}
+	private static class ImageInformation {
+		
+		public ImageInformation(Image aFxImage, String aFormatName, String anImageSize) {
+			this.fximage=aFxImage;
+			this.formatName=aFormatName;
+			this.imageSize=anImageSize;
+		}
+		public Image fximage;
+		public String formatName;
+		public String imageSize;
+	}
+
+	private void setupImageTask() {
+		Task<ImageInformation> setupImageTask = new Task<ImageInformation>() {
+
+			@Override
+			protected ImageInformation call() throws Exception {
+				return setupImage();
+			}
+		};
+		setupImageTask.setOnSucceeded(event -> {
+			Platform.runLater(() -> {
+				ImageInformation ii = setupImageTask.getValue();
+				imageView.setImage(ii.fximage);
+				String base64String = new String(Base64.getEncoder().encode(image_bytes));
+				base64Label.setText(base64String);
+				statusMessageLabel.setText(
+						String.format("Image %1$s: image size=%2$s, base64 size=%3$,d, type=%4$s, compression=%5$f",
+								imageName, ii.imageSize, base64String.length(), ii.formatName, displayCompression));
+				imageView.getScene().setCursor(Cursor.DEFAULT);
+			});
+		});
+		setupImageTask.setOnFailed(event -> Platform.runLater(() -> imageView.getScene().setCursor(Cursor.DEFAULT)));
+		Thread t=new Thread(setupImageTask);
+		t.setDaemon(true);
+		imageView.getScene().setCursor(Cursor.WAIT);
+		t.start();
+	}
+
 	/**
 	 * Setup the image represented by the saved byte array image_bytes into the imageView and
 	 * base64Label.
@@ -151,15 +191,15 @@ public class ImageUtilController {
 	 * @throws NoSuchElementException if there are no readers found that can handle this input stream
 	 */
 	@SuppressWarnings("restriction")
-	private void setupImage() throws IOException {
-		if (image_bytes==null) return;
+	private ImageInformation setupImage() throws IOException {
+		if (image_bytes==null) return null;
 
 		Image fximage=null;
 		bais.reset(); // always reset in case setupImage() is being called on same image
 
 		// we always need ImageIO to determine filetype
 		ImageInputStream imageis = ImageIO.createImageInputStream(bais);
-		String formatName=null;
+		final String formatName;
 		ImageReader reader=null;
 		String imageSize=String.format("%1$,d", image_bytes.length);
 		reader=ImageIO.getImageReaders(imageis).next();
@@ -204,10 +244,15 @@ public class ImageUtilController {
 		
 		imageis.close();
 		reader.dispose();
-		imageView.setImage(fximage);
-		String base64String=new String(Base64.getEncoder().encode(image_bytes));
-		base64Label.setText(base64String);
-		statusMessageLabel.setText(String.format("Image %1$s: image size=%2$s, base64 size=%3$,d, type=%4$s, compression=%5$f", imageName, imageSize, base64String.length(), formatName, displayCompression));
+		return new ImageInformation(fximage, formatName, imageSize);
+//		final Image ffximage=fximage;
+//		final String fimageSize=imageSize;
+//		Platform.runLater(() -> {
+//			imageView.setImage(ffximage);
+//			String base64String=new String(Base64.getEncoder().encode(image_bytes));
+//			base64Label.setText(base64String);
+//			statusMessageLabel.setText(String.format("Image %1$s: image size=%2$s, base64 size=%3$,d, type=%4$s, compression=%5$f", imageName, fimageSize, base64String.length(), formatName, displayCompression));
+//		});
 	}
 
 	@FXML private void saveFired(ActionEvent event) {
