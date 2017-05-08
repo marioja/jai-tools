@@ -6,12 +6,13 @@ import static net.mfjassociates.jai.PreferencesController.RECOMMENDED_JPEG_QUALI
 import static net.mfjassociates.jai.PreferencesController.SAVE_COMPRESSION_PREF;
 import static net.mfjassociates.jai.util.ImageHandler.saveImage;
 
+import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
 import java.util.Base64;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -35,21 +36,21 @@ import javax.imageio.stream.ImageOutputStream;
 import com.sun.javafx.iio.ImageStorageException;
 
 import javafx.application.Platform;
-import javafx.concurrent.Task;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
-import javafx.scene.Cursor;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.DialogPane;
 import javafx.scene.control.Label;
+import javafx.scene.control.ProgressBar;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.stage.FileChooser;
 import javafx.stage.FileChooser.ExtensionFilter;
 import javafx.stage.Window;
 import javafx.util.Pair;
+import net.mfjassociates.fx.FXUtils.ProgressResponsiveTask;
 import net.mfjassociates.fx.FXUtils.ResponsiveTask;
 import net.mfjassociates.jai.util.ImageHandler;
 
@@ -64,6 +65,7 @@ public class ImageUtilController {
 	@FXML private ImageView imageView;
 	@FXML private Label base64Label;
 	@FXML private Label statusMessageLabel;
+	@FXML private ProgressBar progressBar;
 	private byte[] image_bytes=null;
 	private InputStream bais=null;
 	private String imageName=null;
@@ -76,7 +78,7 @@ public class ImageUtilController {
 	
 	@FXML
 	private void initialize() {
-		
+		progressBar.managedProperty().bind(progressBar.visibleProperty());
 	}
 
 	@FXML private void closeFired(ActionEvent event) {
@@ -132,19 +134,68 @@ public class ImageUtilController {
 		}
 	}
 	private void setupImage(File imageFile) {
+		ProgressResponsiveTask<byte[], IOException> readImageFileTask=new ProgressResponsiveTask<byte[], IOException>(
+				rt -> { // succeeded
+					image_bytes=rt.getValue();
+					// ByteArrayInputStream will mark position 0 when created which is what we want here for reset
+					bais=new ByteArrayInputStream(image_bytes); // remember input stream, only need to reset if required more than once on same data
+					imageName=imageFile.getName();
+					setupImageTask();
+					progressBar.setVisible(false);
+					progressBar.progressProperty().unbind();
+					return false;// do not reset cursor, more to process
+				}, 
+				rt -> {// failed
+					if (rt.getException()!=null) {
+						statusMessageLabel.setText(rt.getException().getMessage());
+					}
+					progressBar.setVisible(false);
+					progressBar.progressProperty().unbind();
+					return null;// Void
+				}, 
+				rt -> {
+					int length=Integer.MAX_VALUE;
+					BufferedInputStream fis=new BufferedInputStream(new FileInputStream(imageFile));
+					ByteArrayOutputStream baos = new ByteArrayOutputStream(4096);
+
+					byte[] buffer = new byte[4096];
+					int totalBytes = 0, readBytes;
+					do {
+						readBytes = fis.read(buffer, 0, Math.min(buffer.length, length - totalBytes));
+						totalBytes += Math.max(readBytes, 0);
+						if (readBytes > 0) {
+							baos.write(buffer, 0, readBytes);
+						}
+						rt.myUpdateProgress(totalBytes);
+					} while (totalBytes < length && readBytes > -1);
+
+					if (length != Integer.MAX_VALUE && totalBytes < length) {
+						throw new IOException("unexpected EOF");
+					}
+					
+					return baos.toByteArray();
+				}, 
+				imageView.getScene(),
+				imageFile.length()
+		);
+		progressBar.setProgress(0d);
+		progressBar.progressProperty().bind(readImageFileTask.progressProperty());
+		progressBar.setVisible(true);
+		Thread readImageFileThread=new Thread(readImageFileTask);
+		readImageFileThread.setDaemon(true);
+		readImageFileThread.start();
+		/*image_bytes=Files.readAllBytes(imageFile.toPath()); // remember last read image
+		// ByteArrayInputStream will mark position 0 when created which is what we want here for reset
+		bais=new ByteArrayInputStream(image_bytes); // remember input stream, only need to reset if required more than once on same data
+		imageName=imageFile.getName();
+		setupImageTask();
 		try {
-			image_bytes=Files.readAllBytes(imageFile.toPath()); // remember last read image
-			// ByteArrayInputStream will mark position 0 when created which is what we want here for reset
-			bais=new ByteArrayInputStream(image_bytes); // remember input stream, only need to reset if required more than once on same data
-			imageName=imageFile.getName();
-			setupImageTask();
 		} catch (NoSuchElementException | IOException e) {
 			e.printStackTrace();
 			String errorMessageFormat="Unable to process file '%1$s'";
-			System.err.println(String.format(errorMessageFormat, imageFile.getAbsolutePath()));
 			statusMessageLabel.setText(String.format(errorMessageFormat, imageFile.getName()));
 			return;
-		}
+		}*/
 	}
 	private static class ImageInformation {
 		
@@ -159,30 +210,6 @@ public class ImageUtilController {
 	}
 
 	private void setupImageTask() {
-//		Task<ImageInformation> setupImageTask = new Task<ImageInformation>() {
-//			@Override
-//			protected ImageInformation call() throws Exception {
-//				return setupImage();
-//			}
-//		};
-//		setupImageTask.setOnSucceeded(event -> {
-//			Platform.runLater(() -> {
-//				ImageInformation ii = setupImageTask.getValue();
-//				imageView.setImage(ii.fximage);
-//				String base64String = new String(Base64.getEncoder().encode(image_bytes));
-//				base64Label.setText(base64String);
-//				statusMessageLabel.setText(
-//						String.format("Image %1$s: image size=%2$s, base64 size=%3$,d, type=%4$s, compression=%5$f",
-//								imageName, ii.imageSize, base64String.length(), ii.formatName, displayCompression));
-//				imageView.getScene().setCursor(Cursor.DEFAULT);
-//			});
-//		});
-//		setupImageTask.setOnFailed(event -> Platform.runLater(() -> {
-//			imageView.getScene().setCursor(Cursor.DEFAULT);
-//			if (setupImageTask.getException()!=null) {
-//				statusMessageLabel.setText(setupImageTask.getException().getMessage());
-//			}
-//		}));
 		ResponsiveTask<ImageInformation, IOException> setupImageTask = new ResponsiveTask<ImageInformation, IOException>(
 			rt->{ // succeeded callback
 				ImageInformation ii = rt.getValue();
@@ -192,13 +219,13 @@ public class ImageUtilController {
 				statusMessageLabel.setText(
 						String.format("Image %1$s: image size=%2$s, base64 size=%3$,d, type=%4$s, compression=%5$f",
 								imageName, ii.imageSize, base64String.length(), ii.formatName, displayCompression));
-				return null;
+				return true;
 			},
 			rt->{ // failed callback
 				if (rt.getException()!=null) {
 					statusMessageLabel.setText(rt.getException().getMessage());
 				}
-				return null;
+				return null;// Void
 			},
 			()->setupImage(), // ThrowingSupplier, this will return the ImageInformation object
 			imageView.getScene() // scene to set the cursor to wait and back to default.
@@ -207,7 +234,6 @@ public class ImageUtilController {
 		base64Label.setText("");
 		Thread setupThread=new Thread(setupImageTask);
 		setupThread.setDaemon(true);
-//		imageView.getScene().setCursor(Cursor.WAIT);
 		setupThread.start();
 	}
 
@@ -238,9 +264,10 @@ public class ImageUtilController {
 			fximage = new Image(bais); // use javafx image processing
 			if (fximage.isError()) {
 				if (fximage.getException() instanceof ImageStorageException) { // use ImageIO since javafx failed
+					bais.reset();
 					fximage = SwingFXUtils.toFXImage(reader.read(0), null);
 				} else {
-					throw new RuntimeException("Unexpected error from JavaFX Image conversion", fximage.getException());
+					throw new RuntimeException("Unexpected error from JavaFX Image conversion: "+fximage.getException().getLocalizedMessage(), fximage.getException());
 				}
 			}
 		} else { // regenerate fximage using displayCompression
