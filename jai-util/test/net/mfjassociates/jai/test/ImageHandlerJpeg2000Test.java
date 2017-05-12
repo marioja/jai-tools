@@ -122,7 +122,7 @@ public class ImageHandlerJpeg2000Test {
 	@BeforeClass
 	public static void setUpBeforeClass() throws Exception {
 		image_bytes=Files.readAllBytes(testImagePath);
-		imageIS=ImageHandler.createImageIS(image_bytes);
+		imageIS=ImageHandler.createImageIS(ImageHandler.createIS(image_bytes));
 		reader=ImageHandler.createReader(imageIS);
 		Files.createDirectories(outputDir);
 		Files.walk(outputDir).filter(Files::isRegularFile).map(Path::toFile).forEach(File::delete);// clean directory

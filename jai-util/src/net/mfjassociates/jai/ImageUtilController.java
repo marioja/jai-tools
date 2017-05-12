@@ -32,10 +32,23 @@ import javax.imageio.spi.IIORegistry;
 import javax.imageio.spi.ImageReaderSpi;
 import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.ImageOutputStream;
+import javax.xml.transform.TransformerException;
 
+import com.drew.imaging.ImageMetadataReader;
+import com.drew.imaging.ImageProcessingException;
+import com.drew.metadata.Directory;
+import com.drew.metadata.Metadata;
+import com.drew.metadata.MetadataException;
+import com.drew.metadata.Tag;
+import com.drew.metadata.jfif.JfifDirectory;
 import com.sun.javafx.iio.ImageStorageException;
 
 import javafx.application.Platform;
+import javafx.beans.binding.StringBinding;
+import javafx.beans.property.IntegerProperty;
+import javafx.beans.property.SimpleIntegerProperty;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.beans.property.StringProperty;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -44,8 +57,11 @@ import javafx.scene.control.Dialog;
 import javafx.scene.control.DialogPane;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
+import javafx.scene.control.RadioMenuItem;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.layout.GridPane;
 import javafx.stage.FileChooser;
 import javafx.stage.FileChooser.ExtensionFilter;
 import javafx.stage.Window;
@@ -53,6 +69,7 @@ import javafx.util.Pair;
 import net.mfjassociates.fx.FXUtils.ProgressResponsiveTask;
 import net.mfjassociates.fx.FXUtils.ResponsiveTask;
 import net.mfjassociates.jai.util.ImageHandler;
+import net.mfjassociates.jai.util.ImageHandler.BasicImageInformation;
 
 public class ImageUtilController {
 	
@@ -63,9 +80,12 @@ public class ImageUtilController {
     private Preferences userPreferences = Preferences.userNodeForPackage(this.getClass());
 	
 	@FXML private ImageView imageView;
-	@FXML private Label base64Label;
 	@FXML private Label statusMessageLabel;
 	@FXML private ProgressBar progressBar;
+	@FXML private RadioMenuItem metadataMenu;
+	@FXML private RadioMenuItem base64Menu;
+	@FXML private Label resolutionLabel;
+	@FXML private ScrollPane leftsp;
 	private byte[] image_bytes=null;
 	private InputStream bais=null;
 	private String imageName=null;
@@ -75,11 +95,61 @@ public class ImageUtilController {
 	private ExtensionFilter[] imageIOBasedExtensionFilters=createImageIOBasedExtensionFilter();
 
 	private ExtensionFilter selectedExtensionFilter=null;
+	private Label base64Label=new Label();
+	private GridPane metadataGridPane=new GridPane();
+
+	private StringProperty base64String=new SimpleStringProperty();
+//	private BooleanProperty noMetadata=new SimpleBooleanProperty();
+	private IntegerProperty xdensity=new SimpleIntegerProperty(-1);
+	private IntegerProperty ydensity=new SimpleIntegerProperty(-1);
 	
 	@FXML
 	private void initialize() {
 		progressBar.managedProperty().bind(progressBar.visibleProperty());
+
+		metadataGridPane.hgapProperty().set(3);
+		metadataGridPane.vgapProperty().set(3);
+		metadataGridPane.visibleProperty().set(false);
+		
+		metadataMenu.disableProperty().bind(metadataGridPane.visibleProperty().not());
+		
+		base64Label.setWrapText(true);
+		base64Label.textProperty().bind(base64String);
+		
+		leftsp.setContent(base64Label);
+		
+		resolutionLabel.textProperty().bind(new StringBinding(){
+			
+			{super.bind(xdensity, ydensity);}
+
+			@Override
+			protected String computeValue() {
+				String result=null;
+				if (xdensity.get()!=-1 && ydensity.get()!=-1) {
+					result=String.format(" xres: %1$d, yres: %2$d", xdensity.get(), ydensity.get());
+				}
+				return result;
+			}
+			
+		});
 	}
+	
+	// Property functions
+	
+	// base64String
+	public final String getBase64String() {return base64String.get();}
+	public final void setBase64String(String aMetadata) {base64String.set(aMetadata);}
+	public final StringProperty base64StringProperty() {return base64String;}
+
+	// xdensity
+	public final int getXdensity() {return xdensity.get();}
+	public final void setXdensity(int anXdensity) {xdensity.set(anXdensity);}
+	public final IntegerProperty xdensityProperty() {return xdensity;}
+
+	// ydensity
+	public final int getYdensity() {return ydensity.get();}
+	public final void setYdensity(int aYdensity) {ydensity.set(aYdensity);}
+	public final IntegerProperty ydensityProperty() {return ydensity;}
 
 	@FXML private void closeFired(ActionEvent event) {
 		Platform.exit();
@@ -126,13 +196,19 @@ public class ImageUtilController {
 //			System.out.println(String.format("save compression=%1$f, display compression=%2$f.", result.get().getKey(), result.get().getValue()));
 		}
 	}
-	
+	@FXML private void base64Fired(ActionEvent event) {
+		Platform.runLater(() -> leftsp.setContent(base64Label));
+	}
+	@FXML private void metadataFired(ActionEvent event) {
+		Platform.runLater(() -> leftsp.setContent(metadataGridPane));
+	}
 	@FXML private void openFired(ActionEvent event) throws IOException {
 		File imageFile=configureFileChooser("Open Image File", imageView.getScene().getWindow(), DIALOG_TYPE.open);
 		if (imageFile!=null) {
 			setupImage(imageFile);
 		}
 	}
+	
 	private void setupImage(File imageFile) {
 		ProgressResponsiveTask<byte[], IOException> readImageFileTask=new ProgressResponsiveTask<byte[], IOException>(
 				rt -> { // succeeded
@@ -199,26 +275,34 @@ public class ImageUtilController {
 	}
 	private static class ImageInformation {
 		
-		public ImageInformation(Image aFxImage, String aFormatName, String anImageSize) {
+		public ImageInformation(Image aFxImage, String aFormatName, String anImageSize, Metadata aMetadata) {
 			this.fximage=aFxImage;
 			this.formatName=aFormatName;
 			this.imageSize=anImageSize;
+			this.metadata=aMetadata;
 		}
 		public Image fximage;
 		public String formatName;
 		public String imageSize;
+		public Metadata metadata;
 	}
 
 	private void setupImageTask() {
 		ResponsiveTask<ImageInformation, IOException> setupImageTask = new ResponsiveTask<ImageInformation, IOException>(
 			rt->{ // succeeded callback
 				ImageInformation ii = rt.getValue();
+				populateMetadata(ii.metadata);
+				if (metadataGridPane.isVisible()) {
+				} else {
+					metadataMenu.setSelected(false);
+					base64Menu.setSelected(true);
+				}
+				
 				imageView.setImage(ii.fximage);
-				String base64String = new String(Base64.getEncoder().encode(image_bytes));
-				base64Label.setText(base64String);
+				base64String.set(new String(Base64.getEncoder().encode(image_bytes)));
 				statusMessageLabel.setText(
 						String.format("Image %1$s: image size=%2$s, base64 size=%3$,d, type=%4$s, compression=%5$f",
-								imageName, ii.imageSize, base64String.length(), ii.formatName, displayCompression));
+								imageName, ii.imageSize, base64String.get().length(), ii.formatName, displayCompression));
 				return true;
 			},
 			rt->{ // failed callback
@@ -231,16 +315,71 @@ public class ImageUtilController {
 			imageView.getScene() // scene to set the cursor to wait and back to default.
 		);
 		imageView.setImage(null);
-		base64Label.setText("");
+		base64String.set(null);
+		metadataGridPane.visibleProperty().set(false);
 		Thread setupThread=new Thread(setupImageTask);
 		setupThread.setDaemon(true);
 		setupThread.start();
+	}
+	
+	private static class ModifyiableLabel extends Label {
+		public ModifyiableLabel(String message) {
+			super(message);
+			this.setWrapText(true);
+		}
+	}
+
+	/**
+	 * Populate the image metadata into the metadataGridPane.
+	 * 
+	 * @param metadata
+	 */
+	private void populateMetadata(Metadata metadata) {
+		if (metadata==null) {
+			metadataGridPane.visibleProperty().set(false);
+			return;
+		}
+		int row=0;
+		metadataGridPane.getChildren().clear();
+		metadataGridPane.add(new ModifyiableLabel("Directory"), 0, row);
+		metadataGridPane.add(new ModifyiableLabel("Tag Id"), 1, row);
+		metadataGridPane.add(new ModifyiableLabel("Tag Name"), 2, row);
+		metadataGridPane.add(new ModifyiableLabel("Extracted Value"), 3, row);
+		row++;
+		for (Directory dir : metadata.getDirectories()) {
+			for (Tag tag : dir.getTags()) {
+				metadataGridPane.add(new ModifyiableLabel(tag.getDirectoryName()), 0, row);
+				metadataGridPane.add(new ModifyiableLabel(tag.getTagTypeHex()), 1, row);
+				metadataGridPane.add(new ModifyiableLabel(tag.getTagName()), 2, row);
+				metadataGridPane.add(new ModifyiableLabel(tag.getDescription()), 3, row);
+				row++;
+			}
+			if (dir.hasErrors()) {
+				for (String error : dir.getErrors()) {
+					Label errorLabel=new ModifyiableLabel(error);
+					GridPane.setColumnSpan(errorLabel, 4);
+					metadataGridPane.add(errorLabel, 0, row);
+					row++;
+				}
+			}
+		}
+		JfifDirectory jfif = metadata.getFirstDirectoryOfType(JfifDirectory.class);
+		if (jfif!=null) {
+			try {
+				xdensityProperty().set(jfif.getInt(JfifDirectory.TAG_RESX));
+				ydensityProperty().set(jfif.getInt(JfifDirectory.TAG_RESY));
+			} catch (MetadataException e) {
+			}
+		}
+		metadataGridPane.visibleProperty().set(true);
 	}
 
 	/**
 	 * Setup the image represented by the saved byte array image_bytes into the imageView and
 	 * base64Label.
 	 * @throws IOException if there is an error reading from the input stream
+	 * @throws ImageProcessingException 
+	 * @throws TransformerException 
 	 * @throws NoSuchElementException if there are no readers found that can handle this input stream
 	 */
 	@SuppressWarnings("restriction")
@@ -248,7 +387,18 @@ public class ImageUtilController {
 		if (image_bytes==null) return null;
 
 		Image fximage=null;
+		Metadata localMetadata=null;
+
 		bais.reset(); // always reset in case setupImage() is being called on same image
+
+		// read metadata
+		try {
+			bais.reset();
+			localMetadata = ImageMetadataReader.readMetadata(bais);
+		} catch (ImageProcessingException e) {
+		} finally {
+			bais.reset();
+		}
 
 		// we always need ImageIO to determine filetype
 		ImageInputStream imageis = ImageIO.createImageInputStream(bais);
@@ -258,7 +408,11 @@ public class ImageUtilController {
 		reader=ImageIO.getImageReaders(imageis).next();
 		reader.setInput(imageis);
 		formatName=reader.getFormatName();
-		
+		BasicImageInformation ii=new BasicImageInformation();
+		Platform.runLater(() -> {
+			xdensity.set(ii.xdensity);
+			ydensity.set(ii.ydensity);
+		});
 		if (ImageHandler.equals(displayCompression, 1.0f, 4)) {// no compression
 			bais.reset();
 			fximage = new Image(bais); // use javafx image processing
@@ -298,15 +452,7 @@ public class ImageUtilController {
 		
 		imageis.close();
 		reader.dispose();
-		return new ImageInformation(fximage, formatName, imageSize);
-//		final Image ffximage=fximage;
-//		final String fimageSize=imageSize;
-//		Platform.runLater(() -> {
-//			imageView.setImage(ffximage);
-//			String base64String=new String(Base64.getEncoder().encode(image_bytes));
-//			base64Label.setText(base64String);
-//			statusMessageLabel.setText(String.format("Image %1$s: image size=%2$s, base64 size=%3$,d, type=%4$s, compression=%5$f", imageName, fimageSize, base64String.length(), formatName, displayCompression));
-//		});
+		return new ImageInformation(fximage, formatName, imageSize, localMetadata);
 	}
 
 	@FXML private void saveFired(ActionEvent event) {

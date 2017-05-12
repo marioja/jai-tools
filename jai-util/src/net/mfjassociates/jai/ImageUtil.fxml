@@ -5,21 +5,20 @@
 <?import javafx.scene.control.MenuBar?>
 <?import javafx.scene.control.MenuItem?>
 <?import javafx.scene.control.ProgressBar?>
+<?import javafx.scene.control.RadioMenuItem?>
 <?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.SplitPane?>
+<?import javafx.scene.control.ToggleGroup?>
 <?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.VBox?>
 
-<BorderPane prefHeight="335.0" prefWidth="383.0" xmlns="http://javafx.com/javafx/8.0.111" xmlns:fx="http://javafx.com/fxml/1" fx:controller="net.mfjassociates.jai.ImageUtilController">
+<BorderPane prefHeight="335.0" prefWidth="383.0" xmlns="http://javafx.com/javafx/8.0.121" xmlns:fx="http://javafx.com/fxml/1" fx:controller="net.mfjassociates.jai.ImageUtilController">
    <center>
       <SplitPane dividerPositions="0.5" prefHeight="200.0" prefWidth="200.0" BorderPane.alignment="CENTER">
          <items>
-            <ScrollPane fitToWidth="true" prefHeight="200.0" prefWidth="200.0">
-               <content>
-                  <Label fx:id="base64Label" wrapText="true" />
-               </content>
-            </ScrollPane>
+            <ScrollPane fx:id="leftsp" fitToWidth="true" prefHeight="200.0" prefWidth="200.0" />
             <ScrollPane prefHeight="200.0" prefWidth="200.0">
                <content>
                   <ImageView fx:id="imageView" pickOnBounds="true" preserveRatio="true" />
@@ -44,6 +43,16 @@
               <MenuItem mnemonicParsing="false" onAction="#preferencesFired" text="Preferences" />
             </items>
           </Menu>
+            <Menu mnemonicParsing="false" text="View">
+              <items>
+                  <RadioMenuItem fx:id="base64Menu" mnemonicParsing="false" onAction="#base64Fired" selected="true" text="Base64">
+                     <toggleGroup>
+                        <ToggleGroup fx:id="imageDetails" />
+                     </toggleGroup>
+                  </RadioMenuItem>
+                  <RadioMenuItem fx:id="metadataMenu" mnemonicParsing="false" onAction="#metadataFired" text="Metadata" toggleGroup="$imageDetails" />
+              </items>
+            </Menu>
           <Menu mnemonicParsing="false" text="Help">
             <items>
               <MenuItem mnemonicParsing="false" text="About" />
@@ -55,7 +64,12 @@
    <bottom>
       <VBox BorderPane.alignment="CENTER">
          <children>
-            <Label fx:id="statusMessageLabel" maxWidth="1.7976931348623157E308" />
+            <HBox maxWidth="1.7976931348623157E308">
+               <children>
+                  <Label fx:id="statusMessageLabel" maxWidth="1.7976931348623157E308" HBox.hgrow="ALWAYS" />
+                  <Label fx:id="resolutionLabel" />
+               </children>
+            </HBox>
             <ProgressBar fx:id="progressBar" maxWidth="1.7976931348623157E308" progress="0.0" visible="false" />
          </children>
       </VBox>

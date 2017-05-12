@@ -1,25 +1,47 @@
 package net.mfjassociates.jai.util;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
+import javax.imageio.metadata.IIOMetadata;
+import javax.imageio.metadata.IIOMetadataNode;
 import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.ImageOutputStream;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+
+import org.w3c.dom.NamedNodeMap;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 
 public class ImageHandler {
 
-	public static ImageInputStream createImageIS(byte[] input_image_bytes) throws IOException {
-		ByteArrayInputStream bais = new ByteArrayInputStream(input_image_bytes);
+	private static final String JPEG_TREE = "javax_imageio_jpeg_image_1.0";
+	
+	public static class BasicImageInformation {
+		public int xdensity=-1;
+		public int ydensity=-1;
+	}
+
+	public static InputStream createIS(byte[] input_image_bytes) {
+		return new ByteArrayInputStream(input_image_bytes);
+	}
+	public static ImageInputStream createImageIS(InputStream is) throws IOException {
 		ImageInputStream imageis = null;
-		imageis = ImageIO.createImageInputStream(bais);
+		imageis = ImageIO.createImageInputStream(is);
 		return imageis;
 	}
 
@@ -33,7 +55,7 @@ public class ImageHandler {
 
 	public static String saveImage(File outputImageFile, String outFormatName, byte[] input_image_bytes, float saveCompression) throws IOException, FileNotFoundException {
 	
-		ImageInputStream imageis = createImageIS(input_image_bytes);
+		ImageInputStream imageis = createImageIS(createIS(input_image_bytes));
 		ImageReader reader = createReader(imageis);
 		ImageWriter writer = createWriter(outFormatName);
 		ImageWriteParam iwp = writer.getDefaultWriteParam();
@@ -50,6 +72,37 @@ public class ImageHandler {
 	public static ImageWriter createWriter(String outFormatName) {
 		ImageWriter writer = ImageIO.getImageWritersByFormatName(outFormatName).next();
 		return writer;
+	}
+	
+	public static String diplayImageMetadata(ImageReader reader, BasicImageInformation ii) throws IOException, TransformerException {
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+		IIOMetadata metadata = reader.getImageMetadata(0);
+		Node node = metadata.getAsTree(metadata.getNativeMetadataFormatName());
+		if (node instanceof IIOMetadataNode) {
+			IIOMetadataNode iionode = (IIOMetadataNode) node;
+			NodeList apps = iionode.getElementsByTagName("app0JFIF");
+			if (apps!=null && apps.getLength()>0) {
+				Node app = apps.item(0);
+				NamedNodeMap attrs = app.getAttributes();
+				Node xdensity = attrs.getNamedItem("Xdensity");
+				Node ydensity = attrs.getNamedItem("Ydensity");
+				String sxdensity=xdensity.getNodeValue();
+				String sydensity=ydensity.getNodeValue();
+				try {
+					ii.xdensity=Integer.parseInt(sxdensity);
+					ii.ydensity=Integer.parseInt(sydensity);					
+				} catch (NumberFormatException e) {
+				}
+			}
+		}
+		
+
+		// use the XSLT transformation package to output the DOM tree we just
+		// created
+		TransformerFactory tf = TransformerFactory.newInstance();
+		Transformer transformer = tf.newTransformer();
+		transformer.transform(new DOMSource(node), new StreamResult(baos));
+		return new String(baos.toByteArray());
 	}
 
 	public static String setupSaveImageWriteParam(ImageWriteParam iwp, float saveCompression) {
