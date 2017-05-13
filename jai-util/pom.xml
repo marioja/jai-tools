@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>net.mfjassociates.jai</groupId>
   <artifactId>jai-util</artifactId>
-  <version>1.2.12-SNAPSHOT</version>
+  <version>1.2.13.RELEASE</version>
   <build>
     <sourceDirectory>src</sourceDirectory>
     <testSourceDirectory>test</testSourceDirectory>
@@ -40,7 +40,7 @@
         <version>3.0.0</version>
         <executions>
           <execution>
-            <id>copy-installed</id>
+            <id>copy-dist-noversion</id>
             <phase>verify</phase>
             <goals>
               <goal>copy</goal>
