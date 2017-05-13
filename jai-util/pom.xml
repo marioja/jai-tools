@@ -60,6 +60,18 @@
           </execution>
         </executions>
       </plugin>
+		<plugin>
+		    <groupId>org.apache.maven.plugins</groupId>
+		    <artifactId>maven-jar-plugin</artifactId>
+		    <configuration>
+		        <archive>                   
+		            <manifest>
+		                <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+		                <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
+		            </manifest>
+		        </archive>
+		    </configuration>
+		</plugin>
     </plugins>
   </build>
   <dependencies>
@@ -93,4 +105,8 @@
   	<artifactId>spring-boot-starter-parent</artifactId>
   	<version>1.5.3.RELEASE</version>
   </parent>
+  <organization>
+  	<name>MFJ Associates</name>
+  	<url>http://www.mfjassociates.net/</url>
+  </organization>
 </project>

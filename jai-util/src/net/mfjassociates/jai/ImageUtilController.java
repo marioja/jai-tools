@@ -83,6 +83,8 @@ public class ImageUtilController {
 	
 	// preferences
 	private static final String LAST_DIRECTORY_PREF = "last_directory";
+
+	private static final String APPLICATION_INFORMATION = "Application Information";
     private Preferences userPreferences = Preferences.userNodeForPackage(this.getClass());
 	
 	@FXML private ImageView imageView;
@@ -201,6 +203,13 @@ public class ImageUtilController {
 			}
 //			System.out.println(String.format("save compression=%1$f, display compression=%2$f.", result.get().getKey(), result.get().getValue()));
 		}
+	}
+	@FXML private void aboutFired(ActionEvent event) {
+		Package p = getClass().getPackage();
+		Alert alert=new Alert(AlertType.INFORMATION, String.format("Application Name: %1$s\nVendor: %2$s\nVersion: %3$s",p.getImplementationTitle(), p.getImplementationVendor(), p.getImplementationVersion()));
+		alert.setHeaderText(APPLICATION_INFORMATION);
+		alert.setTitle("About");
+		alert.showAndWait();
 	}
 	@FXML private void base64Fired(ActionEvent event) {
 		Platform.runLater(() -> leftsp.setContent(base64Label));
