@@ -14,9 +14,11 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
@@ -53,6 +55,8 @@ import javafx.embed.swing.SwingFXUtils;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.DialogPane;
 import javafx.scene.control.Label;
@@ -61,6 +65,8 @@ import javafx.scene.control.RadioMenuItem;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.DataFormat;
 import javafx.scene.layout.GridPane;
 import javafx.stage.FileChooser;
 import javafx.stage.FileChooser.ExtensionFilter;
@@ -229,7 +235,7 @@ public class ImageUtilController {
 					progressBar.progressProperty().unbind();
 					return null;// Void
 				}, 
-				rt -> {
+				rt -> { // long running read file method with calls to myUpdateProgress
 					int length=Integer.MAX_VALUE;
 					BufferedInputStream fis=new BufferedInputStream(new FileInputStream(imageFile));
 					ByteArrayOutputStream baos = new ByteArrayOutputStream(4096);
@@ -456,6 +462,28 @@ public class ImageUtilController {
 	}
 
 	@FXML private void saveFired(ActionEvent event) {
+		Alert alert=new Alert(AlertType.INFORMATION, "Not implemented yet");
+		alert.showAndWait();
+	}
+	
+	@FXML private void pasteBase64Fired(ActionEvent event) {
+		try {
+			image_bytes=Base64.getDecoder().decode(Clipboard.getSystemClipboard().getString());
+			bais=new ByteArrayInputStream(image_bytes);
+			imageName="*Clipboard*";
+			setupImageTask();
+		} catch (RuntimeException e) {
+			statusMessageLabel.setText(String.format("Error while pasting from clipboard: %1$s", e.getLocalizedMessage()));
+		}
+	}
+
+	@FXML private void copyBase64Fired(ActionEvent event) {
+		if (base64String.get()!=null && !base64String.get().isEmpty()) {
+			Map<DataFormat, Object> content=new HashMap<DataFormat, Object>();
+			content.put(DataFormat.PLAIN_TEXT, base64String.get());
+			Clipboard.getSystemClipboard().setContent(content);
+			statusMessageLabel.setText(String.format("%1$,d characters written to the clipboard.", base64String.get().length()));
+		}
 	}
 	
 	@FXML private void saveAsFired(ActionEvent event) throws IOException {

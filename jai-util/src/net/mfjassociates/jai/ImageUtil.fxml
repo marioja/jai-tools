@@ -41,6 +41,8 @@
           <Menu mnemonicParsing="false" text="Edit">
             <items>
               <MenuItem mnemonicParsing="false" onAction="#preferencesFired" text="Preferences" />
+                  <MenuItem mnemonicParsing="false" onAction="#copyBase64Fired" text="Copy (base 64)" />
+                  <MenuItem mnemonicParsing="false" onAction="#pasteBase64Fired" text="Paste (base 64)" />
             </items>
           </Menu>
             <Menu mnemonicParsing="false" text="View">

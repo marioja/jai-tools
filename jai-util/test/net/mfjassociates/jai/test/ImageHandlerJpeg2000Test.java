@@ -164,7 +164,8 @@ public class ImageHandlerJpeg2000Test {
 //
 	@Test
 	public final void testWriteImageFile() throws FileNotFoundException, IOException {
-		ImageWriter writer = ImageHandler.createWriter("jpeg 2000");
+		String outFormatName="jpeg 2000";
+		ImageWriter writer = ImageHandler.createWriter(outFormatName);
 		ImageWriteParam iwp = writer.getDefaultWriteParam();
 		if (iwp instanceof J2KImageWriteParam) {
 			J2KImageWriteParam j2kiwp=(J2KImageWriteParam) iwp;
@@ -176,7 +177,7 @@ public class ImageHandlerJpeg2000Test {
 			j2kiwp.setFilter(filter);
 			j2kiwp.setNumDecompositionLevels(numDecompositionLevels);
 			Path outImagePath=outputDir.resolve(outImageFilename());
-			ImageHandler.writeImageFile(outImagePath.toFile(), reader, writer, j2kiwp);
+			ImageHandler.writeImageFile(outImagePath.toFile(), reader, writer, j2kiwp, 300, outFormatName);
 		}
 		writer.dispose();
 	}

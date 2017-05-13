@@ -1,5 +1,6 @@
 package net.mfjassociates.jai.util;
 
+import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -11,6 +12,7 @@ import java.io.InputStream;
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
+import javax.imageio.ImageTypeSpecifier;
 import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
 import javax.imageio.metadata.IIOMetadata;
@@ -23,6 +25,9 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
+import org.imgscalr.Scalr;
+import org.imgscalr.Scalr.Method;
+import org.w3c.dom.Element;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -61,7 +66,7 @@ public class ImageHandler {
 		ImageWriteParam iwp = writer.getDefaultWriteParam();
 		String compressionType = setupSaveImageWriteParam(iwp, saveCompression);
 	
-		writeImageFile(outputImageFile, reader, writer, iwp);
+		writeImageFile(outputImageFile, reader, writer, iwp, 300, outFormatName);
 		
 		imageis.close();
 		reader.dispose();
@@ -106,6 +111,7 @@ public class ImageHandler {
 	}
 
 	public static String setupSaveImageWriteParam(ImageWriteParam iwp, float saveCompression) {
+		if (!iwp.canWriteCompressed()) return null;
 		iwp.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
 		String compressionType=iwp.getCompressionTypes()[0];
 		iwp.setCompressionType(compressionType);
@@ -113,10 +119,26 @@ public class ImageHandler {
 		return compressionType;
 	}
 
-	public static void writeImageFile(File imageFile, ImageReader reader, ImageWriter writer, ImageWriteParam iwp)
+	public static void writeImageFile(File imageFile, ImageReader reader, ImageWriter writer, ImageWriteParam iwp, int dpi, String outFormatName)
 			throws FileNotFoundException, IOException {
 		
-		IIOImage iioImage = new IIOImage(reader.read(0), null, null);
+		BufferedImage bufferedImage = reader.read(0);
+//		BufferedImage scaledImage = Scalr.resize(bufferedImage, Method.ULTRA_QUALITY, bufferedImage.getWidth()/3, bufferedImage.getHeight()/3);
+		IIOImage iioImage = new IIOImage(bufferedImage, null, null);
+		
+		
+		if ("JPEG".equalsIgnoreCase(outFormatName)) {
+			// Metadata (dpi)
+			IIOMetadata data = writer.getDefaultImageMetadata(new ImageTypeSpecifier(bufferedImage), iwp);
+			Element tree = (Element) data.getAsTree(JPEG_TREE);
+			Element jfif = (Element) tree.getElementsByTagName("app0JFIF").item(0);
+			jfif.setAttribute("Xdensity", Integer.toString(dpi));
+			jfif.setAttribute("Ydensity", Integer.toString(dpi));
+			jfif.setAttribute("resUnits", "1"); // density is dots per inch
+			data.setFromTree(JPEG_TREE, tree);
+			iioImage.setMetadata(data);
+		}
+
 		FileOutputStream fos=new FileOutputStream(imageFile);
 		ImageOutputStream imageos = ImageIO.createImageOutputStream(fos);
 		writer.setOutput(imageos);
