@@ -21,10 +21,15 @@
                   <goals>
                       <goal>repackage</goal>
                   </goals>
+                  <configuration>
+                  	<classifier>self</classifier>
+                  	<outputDirectory>${basedir}/dist</outputDirectory>
+                  	<finalName>${project.artifactId}</finalName>
+                  </configuration>
               </execution>
           </executions>
       </plugin>
-      <plugin>
+      <!-- <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-dependency-plugin</artifactId>
         <version>3.0.0</version>
@@ -49,7 +54,7 @@
             </configuration>
           </execution>
         </executions>
-      </plugin>
+      </plugin> -->
 		<plugin>
 		    <groupId>org.apache.maven.plugins</groupId>
 		    <artifactId>maven-jar-plugin</artifactId>
