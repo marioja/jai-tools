@@ -36,6 +36,8 @@ import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.ImageOutputStream;
 import javax.xml.transform.TransformerException;
 
+import org.apache.commons.math3.util.Precision;
+
 import com.drew.imaging.ImageMetadataReader;
 import com.drew.imaging.ImageProcessingException;
 import com.drew.metadata.Directory;
@@ -74,7 +76,6 @@ import javafx.stage.Window;
 import javafx.util.Pair;
 import net.mfjassociates.fx.FXUtils.ProgressResponsiveTask;
 import net.mfjassociates.fx.FXUtils.ResponsiveTask;
-import net.mfjassociates.jai.util.ImageHandler;
 import net.mfjassociates.jai.util.ImageHandler.BasicImageInformation;
 
 public class ImageUtilController {
@@ -428,7 +429,7 @@ public class ImageUtilController {
 			xdensity.set(ii.xdensity);
 			ydensity.set(ii.ydensity);
 		});
-		if (ImageHandler.equals(displayCompression, 1.0f, 4)) {// no compression
+		if (Precision.equals(displayCompression, 1.0f, 4)) {// no compression
 			bais.reset();
 			fximage = new Image(bais); // use javafx image processing
 			if (fximage.isError()) {

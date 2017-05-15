@@ -2,6 +2,8 @@ package net.mfjassociates.jai;
 
 import java.util.prefs.Preferences;
 
+import org.apache.commons.math3.util.Precision;
+
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.Parent;
@@ -13,7 +15,6 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.TextFormatter;
 import javafx.util.Pair;
 import javafx.util.StringConverter;
-import net.mfjassociates.jai.util.ImageHandler;
 
 public class PreferencesController {
 	
@@ -43,13 +44,13 @@ public class PreferencesController {
 				float newCompression=Float.parseFloat(aSaveCompression);
 				Float returnedSaveCompression=null;
 				Float returnedDisplayCompression=null;
-				if (!ImageHandler.equals(oldCompression, newCompression, 4)) {
+				if (!Precision.equals(oldCompression, newCompression, 4)) {
 					userPreferences.put(SAVE_COMPRESSION_PREF, aSaveCompression);
 					returnedSaveCompression=newCompression;
 				}
 				oldCompression=Float.parseFloat(displayCompression);
 				newCompression=Float.parseFloat(aDisplayCompression);
-				if (!ImageHandler.equals(oldCompression, newCompression, 4)) {
+				if (!Precision.equals(oldCompression, newCompression, 4)) {
 					userPreferences.put(DISPLAY_COMPRESSION_PREF, aDisplayCompression);
 					returnedDisplayCompression=newCompression;
 				}

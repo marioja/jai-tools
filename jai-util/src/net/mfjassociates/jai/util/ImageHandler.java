@@ -155,50 +155,49 @@ public class ImageHandler {
 	/** Offset to order signed double numbers lexicographically. */
 	public static final int SGN_MASK_FLOAT = 0x80000000;
 
-	/**
-	 * Based on {@link org.apache.commons.math3.util.Precision#equals(float, float, int)}
-	 * @param x
-	 * @param y
-	 * @param maxUlps
-	 * @return
-	 * @see {@link org.apache.commons.math3.util.Precision#equals(float, float, int)}
-	 */
-	public static boolean equals(final float x, final float y, final int maxUlps) {
-	
-	    final int xInt = Float.floatToRawIntBits(x);
-	    final int yInt = Float.floatToRawIntBits(y);
-	
-	    final boolean isEqual;
-	    if (((xInt ^ yInt) & SGN_MASK_FLOAT) == 0) {
-	        // number have same sign, there is no risk of overflow
-	    	// isEqual = FastMath.abs(xInt - yInt) <= maxUlps;
-	    	// Replace code above with (to remove dependency on commons-math3)
-	    	final int x1 = (xInt - yInt);
-	        final int i = x1 >>> 31;
-	        isEqual = ((x1 ^ (~i + 1)) + i) <= maxUlps;
-	
-	    } else {
-	        // number have opposite signs, take care of overflow
-	        final int deltaPlus;
-	        final int deltaMinus;
-	        if (xInt < yInt) {
-	            deltaPlus  = yInt - POSITIVE_ZERO_FLOAT_BITS;
-	            deltaMinus = xInt - NEGATIVE_ZERO_FLOAT_BITS;
-	        } else {
-	            deltaPlus  = xInt - POSITIVE_ZERO_FLOAT_BITS;
-	            deltaMinus = yInt - NEGATIVE_ZERO_FLOAT_BITS;
-	        }
-	
-	        if (deltaPlus > maxUlps) {
-	            isEqual = false;
-	        } else {
-	            isEqual = deltaMinus <= (maxUlps - deltaPlus);
-	        }
-	
-	    }
-	
-	    return isEqual && !Float.isNaN(x) && !Float.isNaN(y);
-	
-	}
+//	/**
+//	 * Based on {@link org.apache.commons.math3.util.Precision#equals(float, float, int)}
+//	 * @param x - first float to compare
+//	 * @param y - second float to compare
+//	 * @param maxUlps - See {@link org.apache.commons.math3.util.Precision#equals(float, float, int)} for details
+//	 * @return a boolean indicating if the comparison is equal
+//	 */
+//	public static boolean equals(final float x, final float y, final int maxUlps) {
+//	
+//	    final int xInt = Float.floatToRawIntBits(x);
+//	    final int yInt = Float.floatToRawIntBits(y);
+//	
+//	    final boolean isEqual;
+//	    if (((xInt ^ yInt) & SGN_MASK_FLOAT) == 0) {
+//	        // number have same sign, there is no risk of overflow
+//	    	// isEqual = FastMath.abs(xInt - yInt) <= maxUlps;
+//	    	// Replace code above with (to remove dependency on commons-math3)
+//	    	final int x1 = (xInt - yInt);
+//	        final int i = x1 >>> 31;
+//	        isEqual = ((x1 ^ (~i + 1)) + i) <= maxUlps;
+//	
+//	    } else {
+//	        // number have opposite signs, take care of overflow
+//	        final int deltaPlus;
+//	        final int deltaMinus;
+//	        if (xInt < yInt) {
+//	            deltaPlus  = yInt - POSITIVE_ZERO_FLOAT_BITS;
+//	            deltaMinus = xInt - NEGATIVE_ZERO_FLOAT_BITS;
+//	        } else {
+//	            deltaPlus  = xInt - POSITIVE_ZERO_FLOAT_BITS;
+//	            deltaMinus = yInt - NEGATIVE_ZERO_FLOAT_BITS;
+//	        }
+//	
+//	        if (deltaPlus > maxUlps) {
+//	            isEqual = false;
+//	        } else {
+//	            isEqual = deltaMinus <= (maxUlps - deltaPlus);
+//	        }
+//	
+//	    }
+//	
+//	    return isEqual && !Float.isNaN(x) && !Float.isNaN(y);
+//	
+//	}
 
 }
