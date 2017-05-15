@@ -25,6 +25,7 @@
                   	<classifier>self</classifier>
                   	<outputDirectory>${basedir}/dist</outputDirectory>
                   	<finalName>${project.artifactId}</finalName>
+                  	<attach>false</attach>
                   </configuration>
               </execution>
           </executions>
