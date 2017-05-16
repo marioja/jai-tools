@@ -77,6 +77,7 @@ import javafx.util.Pair;
 import net.mfjassociates.fx.FXUtils.ProgressResponsiveTask;
 import net.mfjassociates.fx.FXUtils.ResponsiveTask;
 import net.mfjassociates.jai.util.ImageHandler.BasicImageInformation;
+import static net.mfjassociates.jai.PreferencesController.*;
 
 public class ImageUtilController {
 	
@@ -99,8 +100,9 @@ public class ImageUtilController {
 	private InputStream bais=null;
 	private String imageName=null;
 	private PreferencesController preferencesController=null;
-	private float saveCompression=userPreferences.getFloat(SAVE_COMPRESSION_PREF, RECOMMENDED_JPEG_QUALITY);
-	private float displayCompression=userPreferences.getFloat(DISPLAY_COMPRESSION_PREF, RECOMMENDED_DISPLAY_QUALITY);
+	private JaiPreferences jaiPrefs=new JaiPreferences(userPreferences);
+	// private float saveCompression=userPreferences.getFloat(SAVE_COMPRESSION_PREF, RECOMMENDED_JPEG_QUALITY);
+	// private float displayCompression=userPreferences.getFloat(DISPLAY_COMPRESSION_PREF, RECOMMENDED_DISPLAY_QUALITY);
 	private ExtensionFilter[] imageIOBasedExtensionFilters=createImageIOBasedExtensionFilter();
 
 	private ExtensionFilter selectedExtensionFilter=null;
@@ -181,25 +183,25 @@ public class ImageUtilController {
 		dialogStage.initOwner(imageView.getScene().getWindow());
 		dialogStage.showAndWait();*/
 		// new way to do dialog (post 8u40 update)
-		Dialog<Pair<Float, Float>> dialog = new Dialog<>();
+		Dialog<JaiPreferences> dialog = new Dialog<>();
 		FXMLLoader loader=new FXMLLoader(getClass().getResource("Preferences.fxml"));
 		loader.setControllerFactory(this::createControllerForType);
 		DialogPane dialogPane = loader.load();
 		dialog.setDialogPane(dialogPane);
 		PreferencesController pc=(PreferencesController) loader.getController();
 		pc.setDialog(dialog);
-		Optional<Pair<Float, Float>> result=null;
+		Optional<JaiPreferences> result=null;
 		try {
 			 result = dialog.showAndWait();
 		} catch (Throwable t) {
 			t.printStackTrace();
 		}
 		if (result.isPresent()) {
-			Float sc = result.get().getKey();
-			Float dc = result.get().getValue();
-			if (sc!=null) saveCompression=sc;
-			if (dc!=null) {
-				displayCompression=dc;
+			   jaiPrefs=result.get();
+			//   Float sc = result.get().saveCompression.get();
+			//   Float dc = result.get().displayCompression.get();
+			//   if (sc!=null) saveCompression=sc;
+			   if (jaiPrefs.displayCompression.isModified()) {
 				setupImageTask();
 			}
 //			System.out.println(String.format("save compression=%1$f, display compression=%2$f.", result.get().getKey(), result.get().getValue()));
@@ -318,7 +320,7 @@ public class ImageUtilController {
 				base64String.set(new String(Base64.getEncoder().encode(image_bytes)));
 				statusMessageLabel.setText(
 						String.format("Image %1$s: image size=%2$s, base64 size=%3$,d, type=%4$s, compression=%5$f",
-								imageName, ii.imageSize, base64String.get().length(), ii.formatName, displayCompression));
+								imageName, ii.imageSize, base64String.get().length(), ii.formatName, jaiPrefs.displayCompression.getString()));
 				return true;
 			},
 			rt->{ // failed callback
@@ -429,7 +431,7 @@ public class ImageUtilController {
 			xdensity.set(ii.xdensity);
 			ydensity.set(ii.ydensity);
 		});
-		if (Precision.equals(displayCompression, 1.0f, 4)) {// no compression
+		if (Precision.equals(jaiPrefs.displayCompression.get(), 1.0f, 4)) {// no compression
 			bais.reset();
 			fximage = new Image(bais); // use javafx image processing
 			if (fximage.isError()) {
@@ -453,7 +455,7 @@ public class ImageUtilController {
 			JPEGImageWriteParam iqp = new JPEGImageWriteParam(null);
 			iqp.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
 			iqp.setCompressionType(iqp.getCompressionTypes()[0]);
-			iqp.setCompressionQuality(displayCompression);
+			iqp.setCompressionQuality(jaiPrefs.displayCompression.get());
 			writer.write(null, iioImage, iqp);
 			imageos.close();
 			writer.dispose();
@@ -500,9 +502,9 @@ public class ImageUtilController {
 		File imageFile=configureFileChooser("Save Image As File", imageView.getScene().getWindow(), DIALOG_TYPE.saveAs);
 		String outFormatName=selectedExtensionFilter.getDescription();
 		if (imageFile!=null) {
-			String compressionType = saveImage(imageFile, outFormatName, image_bytes, saveCompression);
+			String compressionType = saveImage(imageFile, outFormatName, image_bytes, jaiPrefs.saveCompression.get());
 			String imageSize=String.format("%1$,d(%2$,d saved)", image_bytes.length, imageFile.length());
-			statusMessageLabel.setText(String.format("Image %1$s: image size=%2$s, type=%3$s, compression=%4$f, compression type=%5$s", imageFile.getName(), imageSize, outFormatName, saveCompression, compressionType));
+			statusMessageLabel.setText(String.format("Image %1$s: image size=%2$s, type=%3$s, compression=%4$f, compression type=%5$s", imageFile.getName(), imageSize, outFormatName, jaiPrefs.saveCompression.getString(), compressionType));
 		}
 	}
 
