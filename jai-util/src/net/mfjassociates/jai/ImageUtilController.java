@@ -32,6 +32,7 @@ import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.ImageOutputStream;
 import javax.xml.transform.TransformerException;
 
+import org.apache.commons.math3.distribution.GeometricDistribution;
 import org.apache.commons.math3.util.Precision;
 
 import com.drew.imaging.ImageMetadataReader;
@@ -163,7 +164,7 @@ public class ImageUtilController {
 	
 	private Object createControllerForType(Class<?> type) {
 		if (preferencesController==null) {
-			preferencesController=new PreferencesController(userPreferences, imageView.getImage());
+			preferencesController=new PreferencesController(userPreferences, imageView);
 		}
 		return preferencesController;
 	}
@@ -288,21 +289,23 @@ public class ImageUtilController {
 	}
 	private static class ImageInformation {
 		
-		public ImageInformation(Image aFxImage, String aFormatName, String anImageSize, Metadata aMetadata) {
+		public ImageInformation(Image aFxImage, String aFormatName, String anImageSize, Metadata aMetadata, String aBase64String) {
 			this.fximage=aFxImage;
 			this.formatName=aFormatName;
 			this.imageSize=anImageSize;
 			this.metadata=aMetadata;
+			this.base64String=aBase64String;
 		}
 		public Image fximage;
 		public String formatName;
 		public String imageSize;
 		public Metadata metadata;
+		public String base64String;
 	}
 
 	private void setupImageTask() {
 		ResponsiveTask<ImageInformation, IOException> setupImageTask = new ResponsiveTask<ImageInformation, IOException>(
-			rt->{ // succeeded callback
+			rt->{ // succeeded callback, by returning true waiting cursor will be reset back to default
 				ImageInformation ii = rt.getValue();
 				if (ii==null) return true; // no image yet displayed
 				populateMetadata(ii.metadata);
@@ -313,11 +316,12 @@ public class ImageUtilController {
 				}
 				
 				imageView.setImage(ii.fximage);
-				base64String.set(new String(Base64.getEncoder().encode(imageBytes)));
+				base64String.set(ii.base64String);
 				statusMessageLabel.setText(
 						String.format("Image %1$s: image size=%2$s, base64 size=%3$,d, type=%4$s, compression=%5$f",
 								imageName, ii.imageSize, base64String.get().length(), ii.formatName, jaiPrefs.getDisplayCompression().get()));
-				return true;
+				System.out.println("Done loading");
+				return true; // reset cursor to default (no longer waiting)
 			},
 			rt->{ // failed callback
 				if (rt.getException()!=null) {
@@ -433,6 +437,7 @@ public class ImageUtilController {
 		});
 		if (Precision.equals(jaiPrefs.getDisplayCompression().get(), 1.0f, 4)) {// no compression
 			bais.reset();
+			Platform.runLater(() -> statusMessageLabel.setText("Loading image..."));
 			fximage = new Image(bais); // use javafx image processing
 			if (fximage.isError()) {
 				if (fximage.getException() instanceof ImageStorageException) { // use ImageIO since javafx failed
@@ -443,10 +448,12 @@ public class ImageUtilController {
 				}
 			}
 		} else { // regenerate fximage using displayCompression
+			Platform.runLater(() -> statusMessageLabel.setText("Loading image..."));
 			IIOImage iioImage = new IIOImage(reader.read(0), null, null);
 			imageis.close();
 			reader.dispose();
 			
+			Platform.runLater(() -> statusMessageLabel.setText(String.format("Changing compression to %1$d...",jaiPrefs.getDisplayCompression().get())));
 			// write new JPEG image with displayCompression
 			ImageWriter writer = ImageIO.getImageWritersByFormatName("jpeg").next();
 			ByteArrayOutputStream baos=new ByteArrayOutputStream();
@@ -470,7 +477,9 @@ public class ImageUtilController {
 		
 		imageis.close();
 		reader.dispose();
-		return new ImageInformation(fximage, formatName, imageSize, localMetadata);
+		String base64String2 = new String(Base64.getEncoder().encode(imageBytes));
+		Platform.runLater(() -> statusMessageLabel.setText(statusMessageLabel.getText()+"Done"));
+		return new ImageInformation(fximage, formatName, imageSize, localMetadata, base64String2);
 	}
 
 	@FXML private void saveFired(ActionEvent event) {

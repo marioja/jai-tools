@@ -29,6 +29,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextFormatter;
 import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.util.StringConverter;
 import net.mfjassociates.jai.PreferencesController.JaiPreferences.PREFERENCES_NAMES;
 import net.mfjassociates.jai.PreferencesController.JaiPreferences.RESIZE_UNIT;
@@ -42,7 +43,7 @@ public class PreferencesController {
 
     private Preferences userPreferences;
     private JaiPreferences jaiPrefs;
-    private Image image;
+    private ImageView imageView;
 	
 	@FXML private TextField saveCompressionTextField;
 	@FXML private TextField displayCompressionTextField;
@@ -54,9 +55,9 @@ public class PreferencesController {
 	@FXML private ComboBox<RESIZE_UNIT> resizeUnitsComboBox;
 	
 
-	public PreferencesController(Preferences aUserPreferences, Image anImage) {
+	public PreferencesController(Preferences aUserPreferences, ImageView anImageView) {
 		this.userPreferences=aUserPreferences;
-		this.image=anImage;
+		this.imageView=anImageView;
 	}
 	
 	public void setDialog(Dialog<JaiPreferences> aDialog) {
@@ -125,7 +126,7 @@ public class PreferencesController {
     
     private static class SizeConverter extends StringConverter<Float> {
     	
-    	private ObjectProperty<RESIZE_UNIT> resizeUnit=new SimpleObjectProperty<RESIZE_UNIT>();
+    	private ObjectProperty<RESIZE_UNIT> resizeUnit=new SimpleObjectProperty<>();
     	
     	// resizeUnit property
     	public RESIZE_UNIT getResizeUnit() {return resizeUnit.get();}
@@ -179,29 +180,30 @@ public class PreferencesController {
 		resizeUnitsComboBox.getSelectionModel().selectedItemProperty().addListener((obs, oldv, newv) -> {
 			// when switching from pixel to percent, calculate percent
 			if (oldv!=null && oldv.equals(PIXEL) && newv!=null && newv.equals(PERCENT)) {
-				if (image!=null) {
-					rw.setString(Double.toString(jaiPrefs.getResizeWidth().get()/image.getWidth()*100d));
+				if (imageView.getImage()!=null) {
+					rw.setString(Double.toString(jaiPrefs.getResizeWidth().get()/imageView.getImage().getWidth()*100d));
 					widthTextField.setText(rw.getString());
-					rh.setString(Double.toString(jaiPrefs.getResizeHeight().get()/image.getHeight()*100d));
+					rh.setString(Double.toString(jaiPrefs.getResizeHeight().get()/imageView.getImage().getHeight()*100d));
 					heightTextField.setText(rh.getString());
 				}
 			}
 			// when switching from percent to pixel, calculate pixels based on percent
 			if (oldv!=null && oldv.equals(PERCENT) && newv!=null && newv.equals(PIXEL)) {
-				if (image!=null) {
-					rw.setString(Double.toString(jaiPrefs.getResizeWidth().get()*image.getWidth()));
+				if (imageView.getImage()!=null) {
+					rw.setString(Double.toString(jaiPrefs.getResizeWidth().get()*imageView.getImage().getWidth()/100d));
 					widthTextField.setText(rw.getString());
-					rh.setString(Double.toString(jaiPrefs.getResizeHeight().get()*image.getHeight()));
+					rh.setString(Double.toString(jaiPrefs.getResizeHeight().get()*imageView.getImage().getHeight()/100d));
 					heightTextField.setText(rh.getString());
 				}
 			}
 		});
+
+		// set width to stored value unless it is zero (default) in that case set it to the image width if loaded
 		SizeConverter sc = new SizeConverter();
 		sc.resizeUnitProperty().bind(resizeUnitsComboBox.valueProperty());
-		
 		widthTextField.setTextFormatter(new TextFormatter<Float>(sc));
-		if (Precision.equals(0f, rw.get(), 4) && image!=null) {
-			String widthString=new Double(image.getWidth()).toString();
+		if (Precision.equals(0f, rw.get(), 4) && imageView.getImage()!=null) {
+			String widthString=Double.toString(imageView.getImage().getWidth());
 			rw.setString(widthString);
 		}
 		widthTextField.setText(rw.getString());
@@ -209,8 +211,8 @@ public class PreferencesController {
 		sc = new SizeConverter();
 		sc.resizeUnitProperty().bind(resizeUnitsComboBox.valueProperty());
 		heightTextField.setTextFormatter(new TextFormatter<Float>(sc));
-		if (Precision.equals(0f, rh.get(), 4) && image!=null) {
-			String heightString=new Double(image.getHeight()).toString();
+		if (Precision.equals(0f, rh.get(), 4) && imageView.getImage()!=null) {
+			String heightString=Double.toString(imageView.getImage().getHeight());
 			rh.setString(heightString);
 		}
 		heightTextField.setText(rh.getString());
@@ -433,9 +435,9 @@ public class PreferencesController {
 	public static void main(String[] args) throws BackingStoreException {
 		Preferences prefs = Preferences.userNodeForPackage(Object.class);
 //		dap(prefs);
-		Stream.of(prefs.keys()).forEach(key -> {
-			System.out.println(String.format("Pref(%1$s)=%2$s", key, prefs.get(key, null)));
-		});
+		Stream.of(prefs.keys()).forEach(key -> 
+			System.out.println(String.format("Pref(%1$s)=%2$s", key, prefs.get(key, null)))
+		);
 		JaiPreference<JaiPreferences.RESIZE_UNIT> a = new JaiPreference<>(PREFERENCES_NAMES.RESIZE_UNITS, prefs);
 		System.out.println("MY-PREF(before set)=" + a.getString());
 		a.setString(JaiPreferences.RESIZE_UNIT.PERCENT.name());
