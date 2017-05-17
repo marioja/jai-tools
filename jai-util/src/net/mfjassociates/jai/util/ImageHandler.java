@@ -58,7 +58,7 @@ public class ImageHandler {
 		return reader;
 	}
 
-	public static String saveImage(File outputImageFile, String outFormatName, byte[] input_image_bytes, float saveCompression) throws IOException, FileNotFoundException {
+	public static String saveImage(File outputImageFile, String outFormatName, byte[] input_image_bytes, float saveCompression, Integer dpi) throws IOException, FileNotFoundException {
 	
 		ImageInputStream imageis = createImageIS(createIS(input_image_bytes));
 		ImageReader reader = createReader(imageis);
@@ -66,7 +66,7 @@ public class ImageHandler {
 		ImageWriteParam iwp = writer.getDefaultWriteParam();
 		String compressionType = setupSaveImageWriteParam(iwp, saveCompression);
 	
-		writeImageFile(outputImageFile, reader, writer, iwp, 300, outFormatName);
+		writeImageFile(outputImageFile, reader, writer, iwp, dpi, outFormatName);
 		
 		imageis.close();
 		reader.dispose();
@@ -119,7 +119,7 @@ public class ImageHandler {
 		return compressionType;
 	}
 
-	public static void writeImageFile(File imageFile, ImageReader reader, ImageWriter writer, ImageWriteParam iwp, int dpi, String outFormatName)
+	public static void writeImageFile(File imageFile, ImageReader reader, ImageWriter writer, ImageWriteParam iwp, Integer dpi, String outFormatName)
 			throws FileNotFoundException, IOException {
 		
 		BufferedImage bufferedImage = reader.read(0);
@@ -127,13 +127,13 @@ public class ImageHandler {
 		IIOImage iioImage = new IIOImage(bufferedImage, null, null);
 		
 		
-		if ("JPEG".equalsIgnoreCase(outFormatName)) {
+		if ("JPEG".equalsIgnoreCase(outFormatName) && dpi!=null) {
 			// Metadata (dpi)
 			IIOMetadata data = writer.getDefaultImageMetadata(new ImageTypeSpecifier(bufferedImage), iwp);
 			Element tree = (Element) data.getAsTree(JPEG_TREE);
 			Element jfif = (Element) tree.getElementsByTagName("app0JFIF").item(0);
-			jfif.setAttribute("Xdensity", Integer.toString(dpi));
-			jfif.setAttribute("Ydensity", Integer.toString(dpi));
+			jfif.setAttribute("Xdensity", dpi.toString());
+			jfif.setAttribute("Ydensity", dpi.toString());
 			jfif.setAttribute("resUnits", "1"); // density is dots per inch
 			data.setFromTree(JPEG_TREE, tree);
 			iioImage.setMetadata(data);

@@ -1,9 +1,5 @@
 package net.mfjassociates.jai;
 
-import static net.mfjassociates.jai.PreferencesController.DISPLAY_COMPRESSION_PREF;
-import static net.mfjassociates.jai.PreferencesController.RECOMMENDED_DISPLAY_QUALITY;
-import static net.mfjassociates.jai.PreferencesController.RECOMMENDED_JPEG_QUALITY;
-import static net.mfjassociates.jai.PreferencesController.SAVE_COMPRESSION_PREF;
 import static net.mfjassociates.jai.util.ImageHandler.saveImage;
 
 import java.io.BufferedInputStream;
@@ -73,11 +69,10 @@ import javafx.scene.layout.GridPane;
 import javafx.stage.FileChooser;
 import javafx.stage.FileChooser.ExtensionFilter;
 import javafx.stage.Window;
-import javafx.util.Pair;
 import net.mfjassociates.fx.FXUtils.ProgressResponsiveTask;
 import net.mfjassociates.fx.FXUtils.ResponsiveTask;
+import net.mfjassociates.jai.PreferencesController.JaiPreferences;
 import net.mfjassociates.jai.util.ImageHandler.BasicImageInformation;
-import static net.mfjassociates.jai.PreferencesController.*;
 
 public class ImageUtilController {
 	
@@ -96,7 +91,7 @@ public class ImageUtilController {
 	@FXML private RadioMenuItem base64Menu;
 	@FXML private Label resolutionLabel;
 	@FXML private ScrollPane leftsp;
-	private byte[] image_bytes=null;
+	private byte[] imageBytes=null;
 	private InputStream bais=null;
 	private String imageName=null;
 	private PreferencesController preferencesController=null;
@@ -168,7 +163,7 @@ public class ImageUtilController {
 	
 	private Object createControllerForType(Class<?> type) {
 		if (preferencesController==null) {
-			preferencesController=new PreferencesController(userPreferences);
+			preferencesController=new PreferencesController(userPreferences, imageView.getImage());
 		}
 		return preferencesController;
 	}
@@ -201,7 +196,7 @@ public class ImageUtilController {
 			//   Float sc = result.get().saveCompression.get();
 			//   Float dc = result.get().displayCompression.get();
 			//   if (sc!=null) saveCompression=sc;
-			   if (jaiPrefs.displayCompression.isModified()) {
+			   if (jaiPrefs.getDisplayCompression().isModified()) {
 				setupImageTask();
 			}
 //			System.out.println(String.format("save compression=%1$f, display compression=%2$f.", result.get().getKey(), result.get().getValue()));
@@ -230,9 +225,9 @@ public class ImageUtilController {
 	private void setupImage(File imageFile) {
 		ProgressResponsiveTask<byte[], IOException> readImageFileTask=new ProgressResponsiveTask<byte[], IOException>(
 				rt -> { // succeeded
-					image_bytes=rt.getValue();
+					imageBytes=rt.getValue();
 					// ByteArrayInputStream will mark position 0 when created which is what we want here for reset
-					bais=new ByteArrayInputStream(image_bytes); // remember input stream, only need to reset if required more than once on same data
+					bais=new ByteArrayInputStream(imageBytes); // remember input stream, only need to reset if required more than once on same data
 					imageName=imageFile.getName();
 					setupImageTask();
 					progressBar.setVisible(false);
@@ -309,6 +304,7 @@ public class ImageUtilController {
 		ResponsiveTask<ImageInformation, IOException> setupImageTask = new ResponsiveTask<ImageInformation, IOException>(
 			rt->{ // succeeded callback
 				ImageInformation ii = rt.getValue();
+				if (ii==null) return true; // no image yet displayed
 				populateMetadata(ii.metadata);
 				if (metadataGridPane.isVisible()) {
 				} else {
@@ -317,10 +313,10 @@ public class ImageUtilController {
 				}
 				
 				imageView.setImage(ii.fximage);
-				base64String.set(new String(Base64.getEncoder().encode(image_bytes)));
+				base64String.set(new String(Base64.getEncoder().encode(imageBytes)));
 				statusMessageLabel.setText(
 						String.format("Image %1$s: image size=%2$s, base64 size=%3$,d, type=%4$s, compression=%5$f",
-								imageName, ii.imageSize, base64String.get().length(), ii.formatName, jaiPrefs.displayCompression.getString()));
+								imageName, ii.imageSize, base64String.get().length(), ii.formatName, jaiPrefs.getDisplayCompression().get()));
 				return true;
 			},
 			rt->{ // failed callback
@@ -402,10 +398,14 @@ public class ImageUtilController {
 	 */
 	@SuppressWarnings("restriction")
 	private ImageInformation setupImage() throws IOException {
-		if (image_bytes==null) return null;
+		if (imageBytes==null) return null;
 
 		Image fximage=null;
 		Metadata localMetadata=null;
+		
+		// reset width and height to default (0)
+		jaiPrefs.getResizeWidth().reset();
+		jaiPrefs.getResizeHeight().reset();
 
 		bais.reset(); // always reset in case setupImage() is being called on same image
 
@@ -422,7 +422,7 @@ public class ImageUtilController {
 		ImageInputStream imageis = ImageIO.createImageInputStream(bais);
 		final String formatName;
 		ImageReader reader=null;
-		String imageSize=String.format("%1$,d", image_bytes.length);
+		String imageSize=String.format("%1$,d", imageBytes.length);
 		reader=ImageIO.getImageReaders(imageis).next();
 		reader.setInput(imageis);
 		formatName=reader.getFormatName();
@@ -431,7 +431,7 @@ public class ImageUtilController {
 			xdensity.set(ii.xdensity);
 			ydensity.set(ii.ydensity);
 		});
-		if (Precision.equals(jaiPrefs.displayCompression.get(), 1.0f, 4)) {// no compression
+		if (Precision.equals(jaiPrefs.getDisplayCompression().get(), 1.0f, 4)) {// no compression
 			bais.reset();
 			fximage = new Image(bais); // use javafx image processing
 			if (fximage.isError()) {
@@ -455,7 +455,7 @@ public class ImageUtilController {
 			JPEGImageWriteParam iqp = new JPEGImageWriteParam(null);
 			iqp.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
 			iqp.setCompressionType(iqp.getCompressionTypes()[0]);
-			iqp.setCompressionQuality(jaiPrefs.displayCompression.get());
+			iqp.setCompressionQuality(jaiPrefs.getDisplayCompression().get());
 			writer.write(null, iioImage, iqp);
 			imageos.close();
 			writer.dispose();
@@ -465,7 +465,7 @@ public class ImageUtilController {
 			reader=ImageIO.getImageReaders(imageis).next();
 			reader.setInput(imageis);
 			fximage = SwingFXUtils.toFXImage(reader.read(0), null);
-			imageSize=String.format("%1$,d(compressed jpg %2$,d)", image_bytes.length, baos.toByteArray().length);
+			imageSize=String.format("%1$,d(compressed jpg %2$,d)", imageBytes.length, baos.toByteArray().length);
 		}
 		
 		imageis.close();
@@ -480,8 +480,8 @@ public class ImageUtilController {
 	
 	@FXML private void pasteBase64Fired(ActionEvent event) {
 		try {
-			image_bytes=Base64.getDecoder().decode(Clipboard.getSystemClipboard().getString());
-			bais=new ByteArrayInputStream(image_bytes);
+			imageBytes=Base64.getDecoder().decode(Clipboard.getSystemClipboard().getString());
+			bais=new ByteArrayInputStream(imageBytes);
 			imageName="*Clipboard*";
 			setupImageTask();
 		} catch (RuntimeException e) {
@@ -502,9 +502,9 @@ public class ImageUtilController {
 		File imageFile=configureFileChooser("Save Image As File", imageView.getScene().getWindow(), DIALOG_TYPE.saveAs);
 		String outFormatName=selectedExtensionFilter.getDescription();
 		if (imageFile!=null) {
-			String compressionType = saveImage(imageFile, outFormatName, image_bytes, jaiPrefs.saveCompression.get());
-			String imageSize=String.format("%1$,d(%2$,d saved)", image_bytes.length, imageFile.length());
-			statusMessageLabel.setText(String.format("Image %1$s: image size=%2$s, type=%3$s, compression=%4$f, compression type=%5$s", imageFile.getName(), imageSize, outFormatName, jaiPrefs.saveCompression.getString(), compressionType));
+			String compressionType = saveImage(imageFile, outFormatName, imageBytes, jaiPrefs.getSaveCompression().get(), jaiPrefs.getDpi().get());
+			String imageSize=String.format("%1$,d(%2$,d saved)", imageBytes.length, imageFile.length());
+			statusMessageLabel.setText(String.format("Image %1$s: image size=%2$s, type=%3$s, compression=%4$f, compression type=%5$s", imageFile.getName(), imageSize, outFormatName, jaiPrefs.getSaveCompression().get(), compressionType));
 		}
 	}
 
