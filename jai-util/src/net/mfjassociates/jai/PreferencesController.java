@@ -294,7 +294,7 @@ public class PreferencesController {
 				Float oldValue=Float.parseFloat(getString());
 				if (aPref != null) {
 					pref = (T) Float.valueOf(aPref);
-					areEqual = Precision.equals(oldValue, (float)pref, 4);
+					areEqual = Precision.equals(oldValue, (Float)pref, 4);
 				} else {
 					pref = (T) oldValue;
 				}
@@ -302,7 +302,7 @@ public class PreferencesController {
 				Double oldValue=Double.parseDouble(getString());
 				if (aPref != null) {
 					pref = (T) Double.valueOf(aPref);
-					areEqual = Precision.equals(oldValue, (double)pref, 4);
+					areEqual = Precision.equals(oldValue, (Double)pref, 4);
 				} else {
 					pref = (T) oldValue;
 				}
@@ -310,7 +310,7 @@ public class PreferencesController {
 				Long oldValue = Long.parseLong(getString());
 				if (aPref !=null) {
 					pref = (T) Long.valueOf(aPref);
-					areEqual = oldValue == ((long)pref);
+					areEqual = oldValue == ((Long)pref);
 				} else {
 					pref = (T) oldValue;
 				}
@@ -318,7 +318,7 @@ public class PreferencesController {
 				Integer oldValue = Integer.parseInt(getString());
 				if (aPref !=null) {
 					pref = (T) Integer.valueOf(aPref);
-					areEqual = oldValue == ((int)pref);
+					areEqual = oldValue == ((Integer)pref);
 				} else {
 					pref = (T) oldValue;
 				}
