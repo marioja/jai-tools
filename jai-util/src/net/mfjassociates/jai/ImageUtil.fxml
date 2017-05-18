@@ -1,9 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import java.lang.*?>
-<?import javafx.scene.control.*?>
-<?import javafx.scene.image.*?>
-<?import javafx.scene.layout.*?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.Menu?>
 <?import javafx.scene.control.MenuBar?>
@@ -18,9 +14,9 @@
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.VBox?>
 
-<BorderPane prefHeight="335.0" prefWidth="383.0" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="net.mfjassociates.jai.ImageUtilController">
+<BorderPane prefHeight="335.0" prefWidth="383.0" xmlns="http://javafx.com/javafx/8.0.121" xmlns:fx="http://javafx.com/fxml/1" fx:controller="net.mfjassociates.jai.ImageUtilController">
    <center>
-      <SplitPane dividerPositions="0.5" prefHeight="200.0" prefWidth="200.0" BorderPane.alignment="CENTER">
+      <SplitPane fx:id="splitPane" dividerPositions="0.0" prefHeight="200.0" prefWidth="200.0" BorderPane.alignment="CENTER">
          <items>
             <ScrollPane fx:id="leftsp" fitToWidth="true" prefHeight="200.0" prefWidth="200.0" />
             <ScrollPane prefHeight="200.0" prefWidth="200.0">
@@ -51,12 +47,12 @@
           </Menu>
             <Menu mnemonicParsing="false" text="View">
               <items>
-                  <RadioMenuItem fx:id="base64Menu" mnemonicParsing="false" onAction="#base64Fired" selected="true" text="Base64">
+                  <RadioMenuItem fx:id="base64Menu" mnemonicParsing="false" onAction="#base64Fired" text="Base64">
                      <toggleGroup>
                         <ToggleGroup fx:id="imageDetails" />
                      </toggleGroup>
                   </RadioMenuItem>
-                  <RadioMenuItem fx:id="metadataMenu" mnemonicParsing="false" onAction="#metadataFired" text="Metadata" toggleGroup="$imageDetails" />
+                  <RadioMenuItem fx:id="metadataMenu" mnemonicParsing="false" onAction="#metadataFired" selected="true" text="Metadata" toggleGroup="$imageDetails" />
               </items>
             </Menu>
           <Menu mnemonicParsing="false" text="Help">

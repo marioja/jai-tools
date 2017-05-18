@@ -44,9 +44,16 @@ import com.drew.metadata.Tag;
 import com.drew.metadata.jfif.JfifDirectory;
 import com.sun.javafx.iio.ImageStorageException;
 
+import javafx.animation.Animation;
+import javafx.animation.Transition;
 import javafx.application.Platform;
+import javafx.beans.binding.BooleanBinding;
+import javafx.beans.binding.DoubleBinding;
 import javafx.beans.binding.StringBinding;
+import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.DoubleProperty;
 import javafx.beans.property.IntegerProperty;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
@@ -63,16 +70,21 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.RadioMenuItem;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.SplitPane;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.DataFormat;
 import javafx.scene.layout.GridPane;
+import javafx.scene.text.Text;
 import javafx.stage.FileChooser;
 import javafx.stage.FileChooser.ExtensionFilter;
 import javafx.stage.Window;
+import javafx.util.Callback;
+import javafx.util.Duration;
 import net.mfjassociates.fx.FXUtils.ProgressResponsiveTask;
 import net.mfjassociates.fx.FXUtils.ResponsiveTask;
+import net.mfjassociates.fx.FXUtils.ThrowingFunction;
 import net.mfjassociates.jai.PreferencesController.JaiPreferences;
 import net.mfjassociates.jai.util.ImageHandler.BasicImageInformation;
 
@@ -93,23 +105,23 @@ public class ImageUtilController {
 	@FXML private RadioMenuItem base64Menu;
 	@FXML private Label resolutionLabel;
 	@FXML private ScrollPane leftsp;
+	@FXML private SplitPane splitPane;
 	private byte[] imageBytes=null;
 	private InputStream bais=null;
 	private String imageName=null;
 	private PreferencesController preferencesController=null;
 	private JaiPreferences jaiPrefs=new JaiPreferences(userPreferences);
-	// private float saveCompression=userPreferences.getFloat(SAVE_COMPRESSION_PREF, RECOMMENDED_JPEG_QUALITY);
-	// private float displayCompression=userPreferences.getFloat(DISPLAY_COMPRESSION_PREF, RECOMMENDED_DISPLAY_QUALITY);
 	private ExtensionFilter[] imageIOBasedExtensionFilters=createImageIOBasedExtensionFilter();
 
 	private ExtensionFilter selectedExtensionFilter=null;
-	private Label base64Label=new Label();
+	private Text base64Label=new Text();
 	private GridPane metadataGridPane=new GridPane();
 
 	private StringProperty base64String=new SimpleStringProperty();
-//	private BooleanProperty noMetadata=new SimpleBooleanProperty();
 	private IntegerProperty xdensity=new SimpleIntegerProperty(-1);
 	private IntegerProperty ydensity=new SimpleIntegerProperty(-1);
+	private BooleanProperty leftVisible=new SimpleBooleanProperty(false);
+	private boolean visibleInProgress=false;
 	
 	@FXML
 	private void initialize() {
@@ -121,10 +133,61 @@ public class ImageUtilController {
 		
 		metadataMenu.disableProperty().bind(metadataGridPane.visibleProperty().not());
 		
-		base64Label.setWrapText(true);
-		base64Label.textProperty().bind(base64String);
+		base64Label.wrappingWidthProperty().bind(new DoubleBinding(){
+			{super.bind(leftsp.viewportBoundsProperty());}
+
+			@Override
+			protected double computeValue() {
+				return leftsp.viewportBoundsProperty().get().getWidth();
+			}
+		});
 		
-		leftsp.setContent(base64Label);
+		leftsp.setContent(metadataGridPane);
+		leftsp.visibleProperty().bind(leftsp.managedProperty());
+		
+		leftsp.managedProperty().bind(new BooleanBinding() {
+
+			private Animation animation;
+
+			{
+				super.bind(splitPane.getDividers().get(0).positionProperty(), leftVisible);
+				animation = new Transition() {
+					{
+						setCycleDuration(Duration.millis(500));
+					}
+
+					@Override
+					protected void interpolate(double frac) {
+						if (Precision.equals(frac, 1f, 4)) {
+							leftVisible.set(true);
+						}
+					}
+
+				};
+			}
+			
+			@Override
+			protected boolean computeValue() {
+				DoubleProperty divPos = splitPane.getDividers().get(0).positionProperty();
+				if (divPos.get() > 0.1) {
+					if (!leftVisible.get() /*&& !this.animation.getStatus().equals(Animation.Status.RUNNING)*/) {
+						this.animation.playFromStart();
+						visibleInProgress=true;
+					} else {// leftVisible is true
+						if (!visibleInProgress) { // new divider dragging operation
+							leftVisible.set(false);
+						}
+					}
+				} else {
+					leftVisible.set(false);
+				}
+				if (leftVisible.get()) {
+					visibleInProgress=false; // next computeValue() will start a new divider dragging operation
+				}
+
+				return leftVisible.get();
+			}
+		});
 		
 		resolutionLabel.textProperty().bind(new StringBinding(){
 			
@@ -171,14 +234,6 @@ public class ImageUtilController {
 	}
 
 	@FXML private void preferencesFired(ActionEvent event) throws IOException {
-		// old way to do dialogs
-		/*Stage dialogStage=new Stage();
-		FXMLLoader loader=new FXMLLoader(getClass().getResource("Preferences.fxml"));
-		loader.setControllerFactory(this::createControllerForType);
-		Parent dialog = loader.load();
-		dialogStage.setScene(new Scene(dialog));
-		dialogStage.initOwner(imageView.getScene().getWindow());
-		dialogStage.showAndWait();*/
 		// new way to do dialog (post 8u40 update)
 		Dialog<JaiPreferences> dialog = new Dialog<>();
 		FXMLLoader loader=new FXMLLoader(getClass().getResource("Preferences.fxml"));
@@ -190,23 +245,19 @@ public class ImageUtilController {
 		Optional<JaiPreferences> result=null;
 		try {
 			 result = dialog.showAndWait();
-		} catch (Throwable t) {
+		} catch (RuntimeException t) {
 			t.printStackTrace();
 		}
-		if (result.isPresent()) {
-			   jaiPrefs=result.get();
-			//   Float sc = result.get().saveCompression.get();
-			//   Float dc = result.get().displayCompression.get();
-			//   if (sc!=null) saveCompression=sc;
-			   if (jaiPrefs.getDisplayCompression().isModified()) {
+		if (result != null && result.isPresent()) {
+			jaiPrefs = result.get();
+			if (jaiPrefs.getDisplayCompression().isModified()) {
 				setupImageTask();
 			}
-//			System.out.println(String.format("save compression=%1$f, display compression=%2$f.", result.get().getKey(), result.get().getValue()));
 		}
 	}
 	@FXML private void aboutFired(ActionEvent event) {
 		Package p = getClass().getPackage();
-		Alert alert=new Alert(AlertType.INFORMATION, String.format("Application Name: %1$s\nVendor: %2$s\nVersion: %3$s",p.getImplementationTitle(), p.getImplementationVendor(), p.getImplementationVersion()));
+		Alert alert=new Alert(AlertType.INFORMATION, String.format("Application Name: %1$s%nVendor: %2$s%nVersion: %3$s",p.getImplementationTitle(), p.getImplementationVendor(), p.getImplementationVersion()));
 		alert.setHeaderText(APPLICATION_INFORMATION);
 		alert.setTitle("About");
 		alert.showAndWait();
@@ -223,9 +274,40 @@ public class ImageUtilController {
 			setupImage(imageFile);
 		}
 	}
-	
+	public class ImageReadByChunks implements ThrowingFunction<byte[], ProgressResponsiveTask<byte[], IOException>, IOException> {
+
+		private File imageFile;
+		
+		@Override
+		public byte[] applyThrows(ProgressResponsiveTask<byte[], IOException> rt) throws IOException {
+			int length=Integer.MAX_VALUE;
+			BufferedInputStream fis=new BufferedInputStream(new FileInputStream(imageFile));
+			ByteArrayOutputStream baos = new ByteArrayOutputStream(4096);
+
+			byte[] buffer = new byte[4096];
+			int totalBytes = 0;
+			int readBytes;
+			do {
+				readBytes = fis.read(buffer, 0, Math.min(buffer.length, length - totalBytes));
+				totalBytes += Math.max(readBytes, 0);
+				if (readBytes > 0) {
+					baos.write(buffer, 0, readBytes);
+				}
+				rt.myUpdateProgress(totalBytes);
+			} while (totalBytes < length && readBytes > -1);
+			fis.close();
+
+			if (length != Integer.MAX_VALUE && totalBytes < length) {
+				throw new IOException("unexpected EOF");
+			}
+			
+			return baos.toByteArray();
+		}
+		
+	}
 	private void setupImage(File imageFile) {
-		ProgressResponsiveTask<byte[], IOException> readImageFileTask=new ProgressResponsiveTask<byte[], IOException>(
+		ImageReadByChunks imageReadByChunk = new ImageReadByChunks();
+		ProgressResponsiveTask<byte[], IOException> readImageFileTask=new ProgressResponsiveTask<>(
 				rt -> { // succeeded
 					imageBytes=rt.getValue();
 					// ByteArrayInputStream will mark position 0 when created which is what we want here for reset
@@ -244,28 +326,7 @@ public class ImageUtilController {
 					progressBar.progressProperty().unbind();
 					return null;// Void
 				}, 
-				rt -> { // long running read file method with calls to myUpdateProgress
-					int length=Integer.MAX_VALUE;
-					BufferedInputStream fis=new BufferedInputStream(new FileInputStream(imageFile));
-					ByteArrayOutputStream baos = new ByteArrayOutputStream(4096);
-
-					byte[] buffer = new byte[4096];
-					int totalBytes = 0, readBytes;
-					do {
-						readBytes = fis.read(buffer, 0, Math.min(buffer.length, length - totalBytes));
-						totalBytes += Math.max(readBytes, 0);
-						if (readBytes > 0) {
-							baos.write(buffer, 0, readBytes);
-						}
-						rt.myUpdateProgress(totalBytes);
-					} while (totalBytes < length && readBytes > -1);
-
-					if (length != Integer.MAX_VALUE && totalBytes < length) {
-						throw new IOException("unexpected EOF");
-					}
-					
-					return baos.toByteArray();
-				}, 
+				imageReadByChunk::applyThrows, 
 				imageView.getScene(),
 				imageFile.length()
 		);
@@ -275,18 +336,6 @@ public class ImageUtilController {
 		Thread readImageFileThread=new Thread(readImageFileTask);
 		readImageFileThread.setDaemon(true);
 		readImageFileThread.start();
-		/*image_bytes=Files.readAllBytes(imageFile.toPath()); // remember last read image
-		// ByteArrayInputStream will mark position 0 when created which is what we want here for reset
-		bais=new ByteArrayInputStream(image_bytes); // remember input stream, only need to reset if required more than once on same data
-		imageName=imageFile.getName();
-		setupImageTask();
-		try {
-		} catch (NoSuchElementException | IOException e) {
-			e.printStackTrace();
-			String errorMessageFormat="Unable to process file '%1$s'";
-			statusMessageLabel.setText(String.format(errorMessageFormat, imageFile.getName()));
-			return;
-		}*/
 	}
 	private static class ImageInformation {
 		
@@ -303,6 +352,7 @@ public class ImageUtilController {
 	}
 
 	private void loadBase64Task(ImageInformation ii) {
+		// Use JDK Task anonymous class instead of ResponsiveTask because we do not need the GUI cursor handling, this is just a background
 		Task<String> loadBase64Task = new Task<String>() {
 
 			@Override
@@ -315,7 +365,7 @@ public class ImageUtilController {
 		loadBase64Task.setOnSucceeded(event -> /*Platform.runLater(()->*/{
 			try {
 				String b64=loadBase64Task.get();
-				base64String.set(b64);
+				base64Label.setText(b64);
 				statusMessageLabel.setText(
 						String.format("Image %1$s: image size=%2$s, base64 size=%3$,d, type=%4$s, compression=%5$f",
 								imageName, ii.imageSize, loadBase64Task.get().length(), ii.formatName, jaiPrefs.getDisplayCompression().get()));
@@ -323,26 +373,26 @@ public class ImageUtilController {
 				e.printStackTrace();
 			}
 		})/*)*/;
-		ResponsiveTask<String, IOException> loadBase64Task2 = new ResponsiveTask<String, IOException>(
-				rt->{ // succeeded callback, by returning true waiting cursor will be reset back to default
-					base64String.set(rt.getValue());
-					statusMessageLabel.setText(
-							String.format("Image %1$s: image size=%2$s, base64 size=%3$,d, type=%4$s, compression=%5$f",
-									imageName, ii.imageSize, rt.getValue().length(), ii.formatName, jaiPrefs.getDisplayCompression().get()));
-					return true; // reset cursor to default (no longer waiting)
-				},
-				rt->{ // failed callback
-					if (rt.getException()!=null) {
-						statusMessageLabel.setText(rt.getException().getMessage());
-					}
-					return null;// Void
-				},
-				()->{
-					Platform.runLater(() ->statusMessageLabel.setText("Creating base 64 string..."));
-					return new String(Base64.getEncoder().encode(imageBytes));
-				}, // ThrowingSupplier, this will return the String
-				imageView.getScene() // scene to set the cursor to wait and back to default.
-			);
+//		ResponsiveTask<String, IOException> loadBase64Task2 = new ResponsiveTask<String, IOException>(
+//				rt->{ // succeeded callback, by returning true waiting cursor will be reset back to default
+//					base64String.set(rt.getValue());
+//					statusMessageLabel.setText(
+//							String.format("Image %1$s: image size=%2$s, base64 size=%3$,d, type=%4$s, compression=%5$f",
+//									imageName, ii.imageSize, rt.getValue().length(), ii.formatName, jaiPrefs.getDisplayCompression().get()));
+//					return true; // reset cursor to default (no longer waiting)
+//				},
+//				rt->{ // failed callback
+//					if (rt.getException()!=null) {
+//						statusMessageLabel.setText(rt.getException().getMessage());
+//					}
+//					return null;// Void
+//				},
+//				()->{
+//					Platform.runLater(() ->statusMessageLabel.setText("Creating base 64 string..."));
+//					return new String(Base64.getEncoder().encode(imageBytes));
+//				}, // ThrowingSupplier, this will return the String
+//				imageView.getScene() // scene to set the cursor to wait and back to default.
+//			);
 		Thread base64Thread=new Thread(loadBase64Task);
 		base64Thread.setDaemon(true);
 		base64Thread.start();
@@ -372,7 +422,7 @@ public class ImageUtilController {
 				}
 				return null;// Void
 			},
-			()->setupImage(), // ThrowingSupplier, this will return the ImageInformation object
+			this::setupImage, // ThrowingSupplier, this will return the ImageInformation object
 			imageView.getScene() // scene to set the cursor to wait and back to default.
 		);
 		imageView.setImage(null);
@@ -383,10 +433,15 @@ public class ImageUtilController {
 		setupThread.start();
 	}
 	
-	private static class ModifyiableLabel extends Label {
-		public ModifyiableLabel(String message) {
-			super(message);
-			this.setWrapText(true);
+	private static class LabelInitializer {
+		
+		private LabelInitializer() {
+			throw new IllegalAccessError("Do not instantiate, this is a help class");
+		}
+		public static Label getLabel(String message) {
+			Label label=new Label(message);
+			label.setWrapText(true);
+			return label;
 		}
 	}
 
@@ -402,22 +457,22 @@ public class ImageUtilController {
 		}
 		int row=0;
 		metadataGridPane.getChildren().clear();
-		metadataGridPane.add(new ModifyiableLabel("Directory"), 0, row);
-		metadataGridPane.add(new ModifyiableLabel("Tag Id"), 1, row);
-		metadataGridPane.add(new ModifyiableLabel("Tag Name"), 2, row);
-		metadataGridPane.add(new ModifyiableLabel("Extracted Value"), 3, row);
+		metadataGridPane.add(LabelInitializer.getLabel("Directory"), 0, row);
+		metadataGridPane.add(LabelInitializer.getLabel("Tag Id"), 1, row);
+		metadataGridPane.add(LabelInitializer.getLabel("Tag Name"), 2, row);
+		metadataGridPane.add(LabelInitializer.getLabel("Extracted Value"), 3, row);
 		row++;
 		for (Directory dir : metadata.getDirectories()) {
 			for (Tag tag : dir.getTags()) {
-				metadataGridPane.add(new ModifyiableLabel(tag.getDirectoryName()), 0, row);
-				metadataGridPane.add(new ModifyiableLabel(tag.getTagTypeHex()), 1, row);
-				metadataGridPane.add(new ModifyiableLabel(tag.getTagName()), 2, row);
-				metadataGridPane.add(new ModifyiableLabel(tag.getDescription()), 3, row);
+				metadataGridPane.add(LabelInitializer.getLabel(tag.getDirectoryName()), 0, row);
+				metadataGridPane.add(LabelInitializer.getLabel(tag.getTagTypeHex()), 1, row);
+				metadataGridPane.add(LabelInitializer.getLabel(tag.getTagName()), 2, row);
+				metadataGridPane.add(LabelInitializer.getLabel(tag.getDescription()), 3, row);
 				row++;
 			}
 			if (dir.hasErrors()) {
 				for (String error : dir.getErrors()) {
-					Label errorLabel=new ModifyiableLabel(error);
+					Label errorLabel=LabelInitializer.getLabel(error);
 					GridPane.setColumnSpan(errorLabel, 4);
 					metadataGridPane.add(errorLabel, 0, row);
 					row++;
@@ -445,7 +500,9 @@ public class ImageUtilController {
 	 */
 	@SuppressWarnings("restriction")
 	private ImageInformation setupImage() throws IOException {
-		if (imageBytes==null) return null;
+		if (imageBytes==null) {
+			return null;
+		}
 
 		Image fximage=null;
 		Metadata localMetadata=null;
@@ -520,8 +577,6 @@ public class ImageUtilController {
 		
 		imageis.close();
 		reader.dispose();
-//		Platform.runLater(() -> statusMessageLabel.setText("Creating base 64 string..."));
-//		String base64String2 = new String(Base64.getEncoder().encode(imageBytes));
 		Platform.runLater(() -> statusMessageLabel.setText(statusMessageLabel.getText()+"Done"));
 		return new ImageInformation(fximage, formatName, imageSize, localMetadata);
 	}
@@ -583,18 +638,14 @@ public class ImageUtilController {
         fileChooser.setTitle(title);
         fileChooser.setInitialDirectory(new File(userPreferences.get(LAST_DIRECTORY_PREF, HOME_DIR)));
         if (dialogType == DIALOG_TYPE.saveAs) {
-            if (imageName!=null && !imageName.isEmpty()) fileChooser.setInitialFileName(imageName);
+            if (imageName!=null && !imageName.isEmpty()) {
+            	fileChooser.setInitialFileName(imageName);
+            }
             // set to last opened file type
             fileChooser.setSelectedExtensionFilter(computeSelectedExtensionFilter(imageName));
         }
         fileChooser.getExtensionFilters().addAll(
         		imageIOBasedExtensionFilters
-//            new FileChooser.ExtensionFilter("All Images", "*.*"),
-//            new FileChooser.ExtensionFilter("JPG", "*.jpg", "*.jpeg"),
-//            new FileChooser.ExtensionFilter("JP2", "*.jp2"),
-//            new FileChooser.ExtensionFilter("BMP", "*.bmp"),
-//            new FileChooser.ExtensionFilter("GIF", "*.gif"),
-//            new FileChooser.ExtensionFilter("PNG", "*.png")
         );
         File userFile=null;
         try {
@@ -626,7 +677,9 @@ public class ImageUtilController {
         		// changed directory, remember it
         		userPreferences.put(LAST_DIRECTORY_PREF, newLastDirectory);
         	}
-        	if (dialogType==DIALOG_TYPE.saveAs) selectedExtensionFilter=fileChooser.getSelectedExtensionFilter();
+        	if (dialogType==DIALOG_TYPE.saveAs) {
+        		selectedExtensionFilter=fileChooser.getSelectedExtensionFilter();
+        	}
         }
 		
 		return userFile;
@@ -641,23 +694,26 @@ public class ImageUtilController {
 		for (ExtensionFilter extensionFilter : imageIOBasedExtensionFilters) {
 			List<String> extensions = extensionFilter.getExtensions();
 			for (String extension : extensions) {
-				if (anImageName.endsWith(extension.substring(2))) return extensionFilter;
+				if (anImageName.endsWith(extension.substring(2))) {
+					return extensionFilter;
+				}
 			}
 		}
 		return null;
 	}
 
 	private ExtensionFilter[] createImageIOBasedExtensionFilter() {
-		Set<ExtensionFilter> filters=new LinkedHashSet<ExtensionFilter>();
+		Set<ExtensionFilter> filters=new LinkedHashSet<>();
 		filters.add(new FileChooser.ExtensionFilter("All Images", "*.*"));
 		IIORegistry registry = IIORegistry.getDefaultInstance();
 		Iterator<ImageReaderSpi> readersSpi = registry.getServiceProviders(ImageReaderSpi.class, false);
 		for (Iterator<ImageReaderSpi> iterator = readersSpi; iterator.hasNext();) {
 			ImageReaderSpi readerSpi = iterator.next();
-			String[] suffixes = readerSpi.getFileSuffixes();
-			Set<String> extensions=new LinkedHashSet<String>();
+			Set<String> extensions=new LinkedHashSet<>();
 			for (String suffix : readerSpi.getFileSuffixes()) {
-				if (suffix==null || suffix.isEmpty()) suffix="*"; // make it *.* as file extension
+				if (suffix==null || suffix.isEmpty()) {
+					suffix="*"; // make it *.* as file extension
+				}
 				extensions.add("*."+suffix);
 			}
 			filters.add(new FileChooser.ExtensionFilter(readerSpi.getFormatNames()[0], extensions.toArray(new String[]{})));
