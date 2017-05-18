@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.prefs.Preferences;
 
 import javax.imageio.IIOImage;
@@ -32,7 +33,6 @@ import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.ImageOutputStream;
 import javax.xml.transform.TransformerException;
 
-import org.apache.commons.math3.distribution.GeometricDistribution;
 import org.apache.commons.math3.util.Precision;
 
 import com.drew.imaging.ImageMetadataReader;
@@ -50,6 +50,7 @@ import javafx.beans.property.IntegerProperty;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
+import javafx.concurrent.Task;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -289,20 +290,63 @@ public class ImageUtilController {
 	}
 	private static class ImageInformation {
 		
-		public ImageInformation(Image aFxImage, String aFormatName, String anImageSize, Metadata aMetadata, String aBase64String) {
+		public ImageInformation(Image aFxImage, String aFormatName, String anImageSize, Metadata aMetadata) {
 			this.fximage=aFxImage;
 			this.formatName=aFormatName;
 			this.imageSize=anImageSize;
 			this.metadata=aMetadata;
-			this.base64String=aBase64String;
 		}
 		public Image fximage;
 		public String formatName;
 		public String imageSize;
 		public Metadata metadata;
-		public String base64String;
 	}
 
+	private void loadBase64Task(ImageInformation ii) {
+		Task<String> loadBase64Task = new Task<String>() {
+
+			@Override
+			protected String call() throws Exception {
+				Platform.runLater(() ->statusMessageLabel.setText("Creating base 64 string..."));
+				return new String(Base64.getEncoder().encode(imageBytes));
+			}
+			
+		};
+		loadBase64Task.setOnSucceeded(event -> /*Platform.runLater(()->*/{
+			try {
+				String b64=loadBase64Task.get();
+				base64String.set(b64);
+				statusMessageLabel.setText(
+						String.format("Image %1$s: image size=%2$s, base64 size=%3$,d, type=%4$s, compression=%5$f",
+								imageName, ii.imageSize, loadBase64Task.get().length(), ii.formatName, jaiPrefs.getDisplayCompression().get()));
+			} catch (InterruptedException | ExecutionException e) {
+				e.printStackTrace();
+			}
+		})/*)*/;
+		ResponsiveTask<String, IOException> loadBase64Task2 = new ResponsiveTask<String, IOException>(
+				rt->{ // succeeded callback, by returning true waiting cursor will be reset back to default
+					base64String.set(rt.getValue());
+					statusMessageLabel.setText(
+							String.format("Image %1$s: image size=%2$s, base64 size=%3$,d, type=%4$s, compression=%5$f",
+									imageName, ii.imageSize, rt.getValue().length(), ii.formatName, jaiPrefs.getDisplayCompression().get()));
+					return true; // reset cursor to default (no longer waiting)
+				},
+				rt->{ // failed callback
+					if (rt.getException()!=null) {
+						statusMessageLabel.setText(rt.getException().getMessage());
+					}
+					return null;// Void
+				},
+				()->{
+					Platform.runLater(() ->statusMessageLabel.setText("Creating base 64 string..."));
+					return new String(Base64.getEncoder().encode(imageBytes));
+				}, // ThrowingSupplier, this will return the String
+				imageView.getScene() // scene to set the cursor to wait and back to default.
+			);
+		Thread base64Thread=new Thread(loadBase64Task);
+		base64Thread.setDaemon(true);
+		base64Thread.start();
+	}
 	private void setupImageTask() {
 		ResponsiveTask<ImageInformation, IOException> setupImageTask = new ResponsiveTask<ImageInformation, IOException>(
 			rt->{ // succeeded callback, by returning true waiting cursor will be reset back to default
@@ -316,11 +360,10 @@ public class ImageUtilController {
 				}
 				
 				imageView.setImage(ii.fximage);
-				base64String.set(ii.base64String);
 				statusMessageLabel.setText(
 						String.format("Image %1$s: image size=%2$s, base64 size=%3$,d, type=%4$s, compression=%5$f",
-								imageName, ii.imageSize, base64String.get().length(), ii.formatName, jaiPrefs.getDisplayCompression().get()));
-				System.out.println("Done loading");
+								imageName, ii.imageSize, 0, ii.formatName, jaiPrefs.getDisplayCompression().get()));
+				loadBase64Task(ii);
 				return true; // reset cursor to default (no longer waiting)
 			},
 			rt->{ // failed callback
@@ -477,9 +520,10 @@ public class ImageUtilController {
 		
 		imageis.close();
 		reader.dispose();
-		String base64String2 = new String(Base64.getEncoder().encode(imageBytes));
+//		Platform.runLater(() -> statusMessageLabel.setText("Creating base 64 string..."));
+//		String base64String2 = new String(Base64.getEncoder().encode(imageBytes));
 		Platform.runLater(() -> statusMessageLabel.setText(statusMessageLabel.getText()+"Done"));
-		return new ImageInformation(fximage, formatName, imageSize, localMetadata, base64String2);
+		return new ImageInformation(fximage, formatName, imageSize, localMetadata);
 	}
 
 	@FXML private void saveFired(ActionEvent event) {
