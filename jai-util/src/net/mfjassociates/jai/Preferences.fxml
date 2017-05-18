@@ -69,9 +69,9 @@
                      </GridPane.margin>
                   </TextField>
                   <Label text="h:" GridPane.columnIndex="1" GridPane.rowIndex="3">
-                     <padding>
-                        <Insets left="55.0" />
-                     </padding>
+                     <GridPane.margin>
+                        <Insets left="53.0" />
+                     </GridPane.margin>
                   </Label>
                   <TextField fx:id="heightTextField" maxWidth="-Infinity" prefWidth="50.0" GridPane.columnIndex="1" GridPane.rowIndex="3">
                      <GridPane.margin>

@@ -276,6 +276,7 @@ public class PreferencesController {
 			}
 		}
 		public void reset() {
+			prefs.remove(prefName);
 			this.pref=this.defaultValue;
 		}
 		/**
