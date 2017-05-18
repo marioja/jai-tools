@@ -278,6 +278,9 @@ public class ImageUtilController {
 
 		private File imageFile;
 		
+		public void setImageFile(File anImageFile) {
+			this.imageFile=anImageFile;
+		}
 		@Override
 		public byte[] applyThrows(ProgressResponsiveTask<byte[], IOException> rt) throws IOException {
 			int length=Integer.MAX_VALUE;
@@ -307,6 +310,7 @@ public class ImageUtilController {
 	}
 	private void setupImage(File imageFile) {
 		ImageReadByChunks imageReadByChunk = new ImageReadByChunks();
+		imageReadByChunk.setImageFile(imageFile);
 		ProgressResponsiveTask<byte[], IOException> readImageFileTask=new ProgressResponsiveTask<>(
 				rt -> { // succeeded
 					imageBytes=rt.getValue();
