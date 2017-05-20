@@ -64,6 +64,7 @@ import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.DialogPane;
 import javafx.scene.control.Label;
@@ -80,7 +81,6 @@ import javafx.scene.text.Text;
 import javafx.stage.FileChooser;
 import javafx.stage.FileChooser.ExtensionFilter;
 import javafx.stage.Window;
-import javafx.util.Callback;
 import javafx.util.Duration;
 import net.mfjassociates.fx.FXUtils.ProgressResponsiveTask;
 import net.mfjassociates.fx.FXUtils.ResponsiveTask;
@@ -90,7 +90,6 @@ import net.mfjassociates.jai.util.ImageHandler.BasicImageInformation;
 
 public class ImageUtilController {
 	
-	private static final String HOME_DIR = System.getProperty("user.home");
 	
 	// preferences
 	private static final String LAST_DIRECTORY_PREF = "last_directory";
@@ -105,7 +104,10 @@ public class ImageUtilController {
 	@FXML private RadioMenuItem base64Menu;
 	@FXML private Label resolutionLabel;
 	@FXML private ScrollPane leftsp;
+	@FXML private ScrollPane rightsp;
 	@FXML private SplitPane splitPane;
+	@FXML private ContextMenu leftContextMenu;
+	@FXML private ContextMenu rightContextMenu;
 	private byte[] imageBytes=null;
 	private InputStream bais=null;
 	private String imageName=null;
@@ -117,7 +119,7 @@ public class ImageUtilController {
 	private Text base64Label=new Text();
 	private GridPane metadataGridPane=new GridPane();
 
-	private StringProperty base64String=new SimpleStringProperty();
+//	private StringProperty base64String=new SimpleStringProperty();
 	private IntegerProperty xdensity=new SimpleIntegerProperty(-1);
 	private IntegerProperty ydensity=new SimpleIntegerProperty(-1);
 	private BooleanProperty leftVisible=new SimpleBooleanProperty(false);
@@ -188,6 +190,15 @@ public class ImageUtilController {
 				return leftVisible.get();
 			}
 		});
+		leftsp.setOnContextMenuRequested(event -> {
+			leftContextMenu.show(leftsp, event.getScreenX(), event.getScreenY());
+			event.consume();
+		});
+		
+		rightsp.setOnContextMenuRequested(event -> {
+			rightContextMenu.show(rightsp, event.getScreenX(), event.getScreenY());
+			event.consume();
+		});
 		
 		resolutionLabel.textProperty().bind(new StringBinding(){
 			
@@ -207,10 +218,10 @@ public class ImageUtilController {
 	
 	// Property functions
 	
-	// base64String
-	public final String getBase64String() {return base64String.get();}
-	public final void setBase64String(String aMetadata) {base64String.set(aMetadata);}
-	public final StringProperty base64StringProperty() {return base64String;}
+//	// base64String
+//	public final String getBase64String() {return base64String.get();}
+//	public final void setBase64String(String aMetadata) {base64String.set(aMetadata);}
+//	public final StringProperty base64StringProperty() {return base64String;}
 
 	// xdensity
 	public final int getXdensity() {return xdensity.get();}
@@ -274,6 +285,7 @@ public class ImageUtilController {
 			setupImage(imageFile);
 		}
 	}
+	
 	public class ImageReadByChunks implements ThrowingFunction<byte[], ProgressResponsiveTask<byte[], IOException>, IOException> {
 
 		private File imageFile;
@@ -430,7 +442,7 @@ public class ImageUtilController {
 			imageView.getScene() // scene to set the cursor to wait and back to default.
 		);
 		imageView.setImage(null);
-		base64String.set(null);
+		base64Label.setText(null);
 		metadataGridPane.visibleProperty().set(false);
 		Thread setupThread=new Thread(setupImageTask);
 		setupThread.setDaemon(true);
@@ -601,12 +613,20 @@ public class ImageUtilController {
 		}
 	}
 
-	@FXML private void copyBase64Fired(ActionEvent event) {
-		if (base64String.get()!=null && !base64String.get().isEmpty()) {
-			Map<DataFormat, Object> content=new HashMap<DataFormat, Object>();
-			content.put(DataFormat.PLAIN_TEXT, base64String.get());
+	@FXML private void copyImageFired(ActionEvent event) {
+		if (imageView.getImage()!=null) {
+			Map<DataFormat, Object> content=new HashMap<>();
+			content.put(DataFormat.IMAGE, imageView.getImage());
 			Clipboard.getSystemClipboard().setContent(content);
-			statusMessageLabel.setText(String.format("%1$,d characters written to the clipboard.", base64String.get().length()));
+			statusMessageLabel.setText(String.format("%1$,.0f X %2$,.0f pixels image written to the clipboard.", imageView.getImage().getWidth(), imageView.getImage().getHeight()));
+		}
+	}
+	@FXML private void copyBase64Fired(ActionEvent event) {
+		if (base64Label.getText()!=null && !base64Label.getText().isEmpty()) {
+			Map<DataFormat, Object> content=new HashMap<>();
+			content.put(DataFormat.PLAIN_TEXT, base64Label.getText());
+			Clipboard.getSystemClipboard().setContent(content);
+			statusMessageLabel.setText(String.format("%1$,d characters written to the clipboard.", base64Label.getText().length()));
 		}
 	}
 	
@@ -640,7 +660,7 @@ public class ImageUtilController {
 	private File configureFileChooser(String title, Window window, DIALOG_TYPE dialogType) throws IOException {
         final FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle(title);
-        fileChooser.setInitialDirectory(new File(userPreferences.get(LAST_DIRECTORY_PREF, HOME_DIR)));
+        fileChooser.setInitialDirectory(new File(jaiPrefs.getLastDirectory().getString()));
         if (dialogType == DIALOG_TYPE.saveAs) {
             if (imageName!=null && !imageName.isEmpty()) {
             	fileChooser.setInitialFileName(imageName);
@@ -663,7 +683,7 @@ public class ImageUtilController {
 				break;
 			}
 		} catch (IllegalArgumentException e) {
-	        fileChooser.setInitialDirectory(new File(HOME_DIR));                 
+	        fileChooser.setInitialDirectory(new File(System.getProperty("user.home")));                 
 			// Try again
         	switch (dialogType) {
 			case open:

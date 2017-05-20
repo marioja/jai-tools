@@ -19,7 +19,7 @@
       <SplitPane fx:id="splitPane" dividerPositions="0.0" prefHeight="200.0" prefWidth="200.0" BorderPane.alignment="CENTER">
          <items>
             <ScrollPane fx:id="leftsp" fitToWidth="true" prefHeight="200.0" prefWidth="200.0" />
-            <ScrollPane prefHeight="200.0" prefWidth="200.0">
+            <ScrollPane fx:id="rightsp" prefHeight="200.0" prefWidth="200.0">
                <content>
                   <ImageView fx:id="imageView" pickOnBounds="true" preserveRatio="true" />
                </content>

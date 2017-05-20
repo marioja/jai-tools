@@ -2,6 +2,7 @@ package net.mfjassociates.jai;
 
 import static net.mfjassociates.jai.PreferencesController.JaiPreferences.PREFERENCES_NAMES.DISPLAY_COMPRESSION;
 import static net.mfjassociates.jai.PreferencesController.JaiPreferences.PREFERENCES_NAMES.DPI;
+import static net.mfjassociates.jai.PreferencesController.JaiPreferences.PREFERENCES_NAMES.LAST_DIRECTORY;
 import static net.mfjassociates.jai.PreferencesController.JaiPreferences.PREFERENCES_NAMES.RESIZE_HEIGHT;
 import static net.mfjassociates.jai.PreferencesController.JaiPreferences.PREFERENCES_NAMES.RESIZE_UNITS;
 import static net.mfjassociates.jai.PreferencesController.JaiPreferences.PREFERENCES_NAMES.RESIZE_WIDTH;
@@ -28,7 +29,6 @@ import javafx.scene.control.DialogPane;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextFormatter;
-import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.util.StringConverter;
 import net.mfjassociates.jai.PreferencesController.JaiPreferences.PREFERENCES_NAMES;
@@ -53,6 +53,7 @@ public class PreferencesController {
 	@FXML private TextField widthTextField;
 	@FXML private TextField heightTextField;
 	@FXML private ComboBox<RESIZE_UNIT> resizeUnitsComboBox;
+	@FXML private Label lastDirectoryLabel;
 	
 
 	public PreferencesController(Preferences aUserPreferences, ImageView anImageView) {
@@ -218,6 +219,8 @@ public class PreferencesController {
 		heightTextField.setText(rh.getString());
 		dpiTextField.setTextFormatter(new TextFormatter<Integer>(new DpiConverter()));
 		dpiTextField.setText(jaiPrefs.getDpi().getString());
+		
+		lastDirectoryLabel.setText(jaiPrefs.getLastDirectory().getString());
 
 		Platform.runLater(saveCompressionTextField::requestFocus);
 	}
@@ -351,6 +354,8 @@ public class PreferencesController {
 		private JaiPreference<Float> resizeWidth;
 		private JaiPreference<Float> resizeHeight;
 		private JaiPreference<RESIZE_UNIT> resizeUnit;
+		private JaiPreference<String> lastDirectory;
+
 
 		public JaiPreferences(Preferences aPrefs) {
 			this.prefs=aPrefs;
@@ -360,6 +365,7 @@ public class PreferencesController {
 			resizeWidth = new JaiPreference<>(RESIZE_WIDTH, prefs);
 			resizeHeight = new JaiPreference<>(RESIZE_HEIGHT, prefs);
 			resizeUnit = new JaiPreference<>(RESIZE_UNITS, prefs);
+			lastDirectory = new JaiPreference<>(LAST_DIRECTORY, prefs);
 		}
 		enum RESIZE_UNIT {
 			PIXEL, PERCENT;
@@ -369,6 +375,7 @@ public class PreferencesController {
 			SAVE_COMPRESSION("save_compression", .75f),
 			DISPLAY_COMPRESSION("display_compression", 1f),
 			DPI("dots_per_inch", 300),
+			LAST_DIRECTORY("last_directory", System.getProperty("user.home")),
 			RESIZE_WIDTH("resize_width", 0f), 
 			RESIZE_HEIGHT("resize_height", 0f), 
 			RESIZE_UNITS("resize_units", RESIZE_UNIT.PIXEL);
@@ -429,6 +436,12 @@ public class PreferencesController {
 		}
 		public void setResizeHeight(JaiPreference<Float> resizeHeight) {
 			this.resizeHeight = resizeHeight;
+		}
+		public JaiPreference<String> getLastDirectory() {
+			return lastDirectory;
+		}
+		public void setLastDirectory(JaiPreference<String> defaultDirectory) {
+			this.lastDirectory = defaultDirectory;
 		}
 		
 	}
