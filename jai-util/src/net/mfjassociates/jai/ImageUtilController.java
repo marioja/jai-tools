@@ -55,8 +55,6 @@ import javafx.beans.property.DoubleProperty;
 import javafx.beans.property.IntegerProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleIntegerProperty;
-import javafx.beans.property.SimpleStringProperty;
-import javafx.beans.property.StringProperty;
 import javafx.concurrent.Task;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.event.ActionEvent;
@@ -75,6 +73,7 @@ import javafx.scene.control.SplitPane;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.DataFormat;
 import javafx.scene.layout.GridPane;
 import javafx.scene.text.Text;
@@ -615,8 +614,8 @@ public class ImageUtilController {
 
 	@FXML private void copyImageFired(ActionEvent event) {
 		if (imageView.getImage()!=null) {
-			Map<DataFormat, Object> content=new HashMap<>();
-			content.put(DataFormat.IMAGE, imageView.getImage());
+			ClipboardContent content=new ClipboardContent();
+			content.putImage(imageView.getImage());
 			Clipboard.getSystemClipboard().setContent(content);
 			statusMessageLabel.setText(String.format("%1$,.0f X %2$,.0f pixels image written to the clipboard.", imageView.getImage().getWidth(), imageView.getImage().getHeight()));
 		}
