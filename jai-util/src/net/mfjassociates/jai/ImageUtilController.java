@@ -9,6 +9,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintStream;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -335,7 +336,9 @@ public class ImageUtilController {
 				}, 
 				rt -> {// failed
 					if (rt.getException()!=null) {
-						statusMessageLabel.setText(rt.getException().getMessage());
+						ByteArrayOutputStream baos=new ByteArrayOutputStream();
+						rt.getException().printStackTrace(new PrintStream(baos));
+						statusMessageLabel.setText(baos.toString());
 					}
 					progressBar.setVisible(false);
 					progressBar.progressProperty().unbind();
@@ -433,7 +436,9 @@ public class ImageUtilController {
 			},
 			rt->{ // failed callback
 				if (rt.getException()!=null) {
-					statusMessageLabel.setText(rt.getException().getMessage());
+					ByteArrayOutputStream baos=new ByteArrayOutputStream();
+					rt.getException().printStackTrace(new PrintStream(baos));
+					statusMessageLabel.setText(baos.toString());
 				}
 				return null;// Void
 			},
