@@ -74,7 +74,7 @@
   <parent>
   	<groupId>net.mfjassociates.tools</groupId>
   	<artifactId>jai-tools</artifactId>
-  	<version>1.13.2</version>
+  	<version>1.13.3</version>
   </parent>
   <dependencies>
   	<dependency>

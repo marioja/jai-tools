@@ -436,9 +436,14 @@ public class ImageUtilController {
 			},
 			rt->{ // failed callback
 				if (rt.getException()!=null) {
-					ByteArrayOutputStream baos=new ByteArrayOutputStream();
-					rt.getException().printStackTrace(new PrintStream(baos));
-					statusMessageLabel.setText(baos.toString());
+					Throwable cause = rt.getException().getCause();
+					if (cause!=null && cause instanceof NoSuchElementException) {
+						statusMessageLabel.setText("Unable to read image, unknown format");
+					} else {
+						ByteArrayOutputStream baos=new ByteArrayOutputStream();
+						rt.getException().printStackTrace(new PrintStream(baos));
+						statusMessageLabel.setText(baos.toString());
+					}
 				}
 				return null;// Void
 			},
